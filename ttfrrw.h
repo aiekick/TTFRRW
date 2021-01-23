@@ -244,14 +244,14 @@ namespace ttfrrw
 	///// CURVE ///////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
-	class Curve
+	class Contour
 	{
 	public:
 		std::vector<fvec2> m_Points;
 
 	public:
-		Curve();
-		~Curve();
+		Contour();
+		~Contour();
 	};
 
 	///////////////////////////////////////////////////////////////////////
@@ -261,7 +261,7 @@ namespace ttfrrw
 	class BaseGlyph
 	{
 	public:
-		std::vector<Curve> m_Curves;
+		std::vector<Contour> m_Contours;
 		iAABB m_LocalBBox;
 		int32_t m_AdvanceX = 0;
 		int32_t m_LeftSideBearing = 0;
@@ -326,19 +326,19 @@ namespace ttfrrw
 		ttfrrw();
 		~ttfrrw();
 
-	public:
 		bool OpenFontFile(const std::string& vFontFilePathName);
-
-	public:
 		bool WriteFontFile(const std::string& vFontFilePathName);
 
-	public:
 		void AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint);
 		Glyph GetGlyph(const CodePoint& vCodePoint);
 
 	private:
 		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vInMem, int* vError);
 		bool WriteMemoryToFile(const std::string& vFilePathName, MemoryStream* vOutMem, int* vError);
+
+	private:
+		void ParseFontFile(MemoryStream* vInMem);
+		Glyph ParseSimpleGlyf(MemoryStream* vInMem, int16_t vCountContour);
 
 	private: // write table
 		bool Assemble_GLYF_Table();
