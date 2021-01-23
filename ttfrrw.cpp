@@ -558,6 +558,8 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 
 ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCountContour)
 {
+	Glyph glyph;
+	
 	if (vMem)
 	{
 		std::vector<uint16_t> endPtsOfContours;
@@ -618,6 +620,8 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 			}
 		}
 	}
+
+	return glyph;
 }
 
 ///////////////////////////////////////////////////////////////////////
