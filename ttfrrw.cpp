@@ -261,9 +261,14 @@ ttfrrw::ttfrrw::~ttfrrw()
 
 bool ttfrrw::ttfrrw::OpenFontFile(const std::string& vFontFilePathName)
 {
-	(void)vFontFilePathName;
+	bool res = false;
+
+	MemoryStream mem;
+
+	int error = 0;
+	res = LoadFileToMemory(vFontFilePathName, &mem, &error);
 	
-	return false;
+	return res;
 }
 
 bool ttfrrw::ttfrrw::WriteFontFile(const std::string& vFontFilePathName)
@@ -306,12 +311,14 @@ bool ttfrrw::ttfrrw::LoadFileToMemory(
 
 		FILE* intput_file = NULL;
 #if defined(MSVC)
-		fopen_s(&intput_file, vFilePathName.c_str(), "rb");
+		errno_t returnValue = fopen_s(&intput_file, vFilePathName.c_str(), "rb");
+		if (vError)
+			*vError = returnValue;
 #else
 		intput_file = fopen(vFilePathName.c_str(), "rb");
-#endif
 		if (vError)
 			*vError = errno;
+#endif
 		if (intput_file != reinterpret_cast<FILE*>(NULL))
 		{
 			long fileSize = 0;

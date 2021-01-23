@@ -1,8 +1,11 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.8)
 
 project(TTFRRW_App)
 
 enable_language(C CXX)
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
+add_definitions(-DPROJECT_PATH="${CMAKE_SOURCE_DIR}")
 
 file(GLOB SRC 
 	${CMAKE_CURRENT_SOURCE_DIR}/ttfrrw.cpp 
@@ -48,3 +51,4 @@ set(TTFRRW_LIB_DIR ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
 
 add_executable(TTFRRW_App main.cpp)
 target_link_libraries(TTFRRW_App ttfrrw)
+set_property(TARGET TTFRRW_App PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
