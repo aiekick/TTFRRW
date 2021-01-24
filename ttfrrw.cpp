@@ -1,4 +1,4 @@
-#include "ttfrrw.h"
+#include "TTFRRW.h"
 
 #include <fstream>
 #include <sstream>
@@ -6,31 +6,47 @@
 #include <sys/stat.h>
 #include <cerrno>
 
+//#define VERBOSE_MODE
+
+///////////////////////////////////////////////////////////////////////
+//// LOGGING //////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+
+inline static void LogStr(const char* fmt, ...)
+{
+#ifdef VERBOSE_MODE
+	va_list args;
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+#endif
+}
+
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-ttfrrw::MemoryStream::MemoryStream()
+TTFRRW::MemoryStream::MemoryStream()
 {
 
 }
 
-ttfrrw::MemoryStream::MemoryStream(uint8_t * vDatas, size_t vSize)
+TTFRRW::MemoryStream::MemoryStream(uint8_t * vDatas, size_t vSize)
 {
 	Set(vDatas, vSize);
 }
 
-ttfrrw::MemoryStream::~MemoryStream()
+TTFRRW::MemoryStream::~MemoryStream()
 {
 
 }
 
-void ttfrrw::MemoryStream::WriteByte(uint8_t b)
+void TTFRRW::MemoryStream::WriteByte(uint8_t b)
 {
 	m_Datas.push_back(b);
 }
 
-void ttfrrw::MemoryStream::WriteBytes(std::vector<uint8_t> *buffer)
+void TTFRRW::MemoryStream::WriteBytes(std::vector<uint8_t> *buffer)
 {
 	if (buffer)
 	{
@@ -38,7 +54,7 @@ void ttfrrw::MemoryStream::WriteBytes(std::vector<uint8_t> *buffer)
 	}
 }
 
-void ttfrrw::MemoryStream::WriteInt(int32_t i)
+void TTFRRW::MemoryStream::WriteInt(int32_t i)
 {
 	WriteByte((uint8_t)((i >> 24) & 0xff));
 	WriteByte((uint8_t)((i >> 16) & 0xff));
@@ -46,30 +62,30 @@ void ttfrrw::MemoryStream::WriteInt(int32_t i)
 	WriteByte((uint8_t)(i & 0xff));
 }
 
-void ttfrrw::MemoryStream::WriteUShort(int32_t us)
+void TTFRRW::MemoryStream::WriteUShort(int32_t us)
 {
 	WriteByte((uint8_t)((us >> 8) & 0xff));
 	WriteByte((uint8_t)(us & 0xff));
 }
 
-void ttfrrw::MemoryStream::WriteFWord(int32_t us)
+void TTFRRW::MemoryStream::WriteFWord(int32_t us)
 {
 	WriteUShort(us);
 }
 
-void ttfrrw::MemoryStream::WriteShort(int32_t s)
+void TTFRRW::MemoryStream::WriteShort(int32_t s)
 {
 	WriteUShort(s);
 }
 
-void ttfrrw::MemoryStream::WriteUInt24(int32_t ui)
+void TTFRRW::MemoryStream::WriteUInt24(int32_t ui)
 {
 	WriteByte((uint8_t)(ui >> 16) & 0xff);
 	WriteByte((uint8_t)(ui >> 8) & 0xff);
 	WriteByte((uint8_t)ui & 0xff);
 }
 
-void ttfrrw::MemoryStream::WriteULong(int64_t ul)
+void TTFRRW::MemoryStream::WriteULong(int64_t ul)
 {
 	WriteByte((uint8_t)((ul >> 24) & 0xff));
 	WriteByte((uint8_t)((ul >> 16) & 0xff));
@@ -77,12 +93,12 @@ void ttfrrw::MemoryStream::WriteULong(int64_t ul)
 	WriteByte((uint8_t)(ul & 0xff));
 }
 
-void ttfrrw::MemoryStream::WriteLong(int64_t l)
+void TTFRRW::MemoryStream::WriteLong(int64_t l)
 {
 	WriteULong(l);
 }
 
-void ttfrrw::MemoryStream::WriteFixed(MemoryStream::Fixed f)
+void TTFRRW::MemoryStream::WriteFixed(MemoryStream::Fixed f)
 {
 	WriteByte((uint8_t)((f.high >> 24) & 0xff));
 	WriteByte((uint8_t)((f.high >> 16) & 0xff));
@@ -90,38 +106,38 @@ void ttfrrw::MemoryStream::WriteFixed(MemoryStream::Fixed f)
 	WriteByte((uint8_t)(f.low & 0xff));
 }
 
-void ttfrrw::MemoryStream::WriteF2DOT14(MemoryStream::F2DOT14 f)
+void TTFRRW::MemoryStream::WriteF2DOT14(MemoryStream::F2DOT14 f)
 {
 	WriteShort(f.value);
 }
 
-void ttfrrw::MemoryStream::WriteDateTime(longDateTime date)
+void TTFRRW::MemoryStream::WriteDateTime(longDateTime date)
 {
 	WriteULong((date >> 32) & 0xffffffff);
 	WriteULong(date & 0xffffffff);
 }
 
-uint8_t* ttfrrw::MemoryStream::Get()
+uint8_t* TTFRRW::MemoryStream::Get()
 {
 	return m_Datas.data();
 }
 
-size_t ttfrrw::MemoryStream::Size()
+size_t TTFRRW::MemoryStream::Size()
 {
 	return m_Datas.size();
 }
 
-size_t ttfrrw::MemoryStream::GetPos()
+size_t TTFRRW::MemoryStream::GetPos()
 {
 	return m_ReadPos;
 }
 
-void ttfrrw::MemoryStream::SetPos(size_t vPos)
+void TTFRRW::MemoryStream::SetPos(size_t vPos)
 {
 	m_ReadPos = vPos;
 }
 
-void ttfrrw::MemoryStream::Set(uint8_t * vDatas, size_t vSize)
+void TTFRRW::MemoryStream::Set(uint8_t * vDatas, size_t vSize)
 {
 	if (vDatas && vSize)
 	{
@@ -132,50 +148,50 @@ void ttfrrw::MemoryStream::Set(uint8_t * vDatas, size_t vSize)
 	}
 }
 
-uint8_t ttfrrw::MemoryStream::ReadByte()
+uint8_t TTFRRW::MemoryStream::ReadByte()
 {
 	if (m_ReadPos < m_Datas.size())
 		return m_Datas[m_ReadPos++];
 	return 0;
 }
 
-int32_t ttfrrw::MemoryStream::ReadUShort()
+int32_t TTFRRW::MemoryStream::ReadUShort()
 {
 	return 0xffff & (ReadByte() << 8 | ReadByte());
 }
 
-int32_t ttfrrw::MemoryStream::ReadShort()
+int32_t TTFRRW::MemoryStream::ReadShort()
 {
 	return ((ReadByte() << 8 | ReadByte()) << 16) >> 16;
 }
 
-ttfrrw::MemoryStream::FWord ttfrrw::MemoryStream::ReadFWord()
+TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord()
 {
 	return (int16_t)ReadShort();
 }
 
-uint32_t ttfrrw::MemoryStream::ReadUInt24()
+uint32_t TTFRRW::MemoryStream::ReadUInt24()
 {
 	return 0xffffff & (ReadByte() << 16 | ReadByte() << 8 | ReadByte());
 }
 
-uint64_t ttfrrw::MemoryStream::ReadULong()
+uint64_t TTFRRW::MemoryStream::ReadULong()
 {
 	return 0xffffffffL & ReadLong();
 }
 
-uint32_t ttfrrw::MemoryStream::ReadULongAsInt()
+uint32_t TTFRRW::MemoryStream::ReadULongAsInt()
 {
 	int64_t ulong = ReadULong();
 	return ((int32_t)ulong) & ~0x80000000;
 }
 
-int32_t ttfrrw::MemoryStream::ReadLong()
+int32_t TTFRRW::MemoryStream::ReadLong()
 {
 	return ReadByte() << 24 | ReadByte() << 16 | ReadByte() << 8 | ReadByte();
 }
 
-ttfrrw::MemoryStream::Fixed ttfrrw::MemoryStream::ReadFixed()
+TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed()
 {
 	Fixed res;
 	int32_t f = ReadLong();
@@ -184,19 +200,19 @@ ttfrrw::MemoryStream::Fixed ttfrrw::MemoryStream::ReadFixed()
 	return res;
 }
 
-ttfrrw::MemoryStream::F2DOT14 ttfrrw::MemoryStream::ReadF2DOT14()
+TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14()
 {
 	F2DOT14 res;
 	res.value = (int16_t)ReadShort();
 	return res;
 }
 
-ttfrrw::MemoryStream::longDateTime ttfrrw::MemoryStream::ReadDateTime()
+TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime()
 {
 	return (int64_t)ReadULong() << 32 | ReadULong();
 }
 
-std::string ttfrrw::MemoryStream::ReadString(size_t vLen)
+std::string TTFRRW::MemoryStream::ReadString(size_t vLen)
 {
 	std::string res = std::string((char*)(m_Datas.data() + m_ReadPos), vLen);
 	m_ReadPos += vLen;
@@ -207,26 +223,12 @@ std::string ttfrrw::MemoryStream::ReadString(size_t vLen)
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-ttfrrw::Contour::Contour()
+TTFRRW::Contour::Contour()
 {
 
 }
 
-ttfrrw::Contour::~Contour()
-{
-
-}
-
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-
-ttfrrw::AffineGlyph::AffineGlyph()
-{
-
-}
-
-ttfrrw::AffineGlyph::~AffineGlyph()
+TTFRRW::Contour::~Contour()
 {
 
 }
@@ -235,12 +237,12 @@ ttfrrw::AffineGlyph::~AffineGlyph()
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-ttfrrw::Glyph::Glyph()
+TTFRRW::AffineGlyph::AffineGlyph()
 {
 
 }
 
-ttfrrw::Glyph::~Glyph()
+TTFRRW::AffineGlyph::~AffineGlyph()
 {
 
 }
@@ -249,17 +251,31 @@ ttfrrw::Glyph::~Glyph()
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-ttfrrw::ttfrrw::ttfrrw()
+TTFRRW::Glyph::Glyph()
 {
 
 }
 
-ttfrrw::ttfrrw::~ttfrrw()
+TTFRRW::Glyph::~Glyph()
 {
 
 }
 
-bool ttfrrw::ttfrrw::OpenFontFile(const std::string& vFontFilePathName)
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+
+TTFRRW::TTFRRW::TTFRRW()
+{
+
+}
+
+TTFRRW::TTFRRW::~TTFRRW()
+{
+
+}
+
+bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags)
 {
 	bool res = false;
 
@@ -269,12 +285,53 @@ bool ttfrrw::ttfrrw::OpenFontFile(const std::string& vFontFilePathName)
 	res = LoadFileToMemory(vFontFilePathName, &mem, &error);
 	if (res)
 	{
-		ParseFontFile(&mem);
+		ParseFontFile(&mem, vFlags);
 	}
 	return res;
 }
 
-bool ttfrrw::ttfrrw::WriteFontFile(const std::string& vFontFilePathName)
+bool TTFRRW::TTFRRW::OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags)
+{
+	bool res = false;
+
+	if (vStream && vStreamSize)
+	{
+		MemoryStream mem;
+
+		mem.Set(vStream, vStreamSize);
+
+		ParseFontFile(&mem, vFlags);
+
+		res = true;
+	}
+
+	return res;
+}
+
+std::vector<TTFRRW::Glyph>* TTFRRW::TTFRRW::GetGlyphs()
+{
+	if (!m_Glyphs.empty())
+	{
+		return &m_Glyphs;
+	}
+
+	return nullptr;
+}
+
+TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex)
+{
+	if (vGlyphIndex)
+	{
+		if (vGlyphIndex < m_Glyphs.size())
+		{
+			return &m_Glyphs[vGlyphIndex];
+		}
+	}
+
+	return nullptr;
+}
+
+bool TTFRRW::TTFRRW::WriteFontFile(const std::string& vFontFilePathName)
 {
 	return "";
 }
@@ -283,25 +340,24 @@ bool ttfrrw::ttfrrw::WriteFontFile(const std::string& vFontFilePathName)
 //// PUBLIC METHOD'S //////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-void ttfrrw::ttfrrw::AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint)
+void TTFRRW::TTFRRW::AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint)
 {
 	(void)vGlyph;
 	(void)vCodePoint;
 }
 
-ttfrrw::Glyph ttfrrw::ttfrrw::GetGlyph(const CodePoint& vCodePoint)
+TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithCodePoint(const CodePoint& vCodePoint)
 {
 	(void)vCodePoint;
 
-	Glyph res;
-	return res;
+	return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////
 //// PRIVATE FILE / STREAM ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-bool ttfrrw::ttfrrw::LoadFileToMemory(
+bool TTFRRW::TTFRRW::LoadFileToMemory(
 	const std::string& vFilePathName, 
 	MemoryStream* vInMem,
 	int* vError)
@@ -343,7 +399,7 @@ bool ttfrrw::ttfrrw::LoadFileToMemory(
 	return res;
 }
 
-bool ttfrrw::ttfrrw::WriteMemoryToFile(
+bool TTFRRW::TTFRRW::WriteMemoryToFile(
 	const std::string& vFilePathName, 
 	MemoryStream* vOutMem,
 	int* vError)
@@ -379,7 +435,7 @@ bool ttfrrw::ttfrrw::WriteMemoryToFile(
 //// PRIVATE PARSER ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
+void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
 	// la loca contient la position des glyphs et leur taille
 	// la maxp contient le nombre de glyphs
@@ -432,7 +488,7 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 			std::string tagString = std::string((char*)tbl.tag);
 			tables[tagString] = tbl;
 
-			printf("Table %s found\n", tagString.c_str());
+			LogStr("Table %s found\n", tagString.c_str());
 		}
 
 		uint16_t indexToLocFormat = 0; // head table : loca format
@@ -529,9 +585,6 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 				int length = 0;
 				for (size_t i = 0; i < (size_t)numGlyphs; i++)
 				{
-					if (i == 37)
-						i = 37;
-
 					uint32_t offset = glyphsOffsets[i];
 
 					vMem->SetPos(tblOffset + offset);
@@ -542,28 +595,40 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 					MemoryStream::FWord xMax = vMem->ReadFWord();
 					MemoryStream::FWord yMax = vMem->ReadFWord();
 
+					LogStr("-----------------------\n");
+					
+					Glyph glyph;
+					glyph.m_LocalBBox.lowerBound.x = xMin;
+					glyph.m_LocalBBox.lowerBound.y = yMin;
+					glyph.m_LocalBBox.upperBound.x = xMax;
+					glyph.m_LocalBBox.upperBound.y = yMax;
+					
+					LogStr("BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
+					
 					if (numberOfContours >= 0) // simple glyf
 					{
-						printf("-----------------------\n");
-						printf("Glyph %u : Simple Glyph\n", (uint32_t)i);
-
-						printf("BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
+						LogStr("Glyph %u : Simple Glyph\n", (uint32_t)i);
 						
-						auto glyph = ParseSimpleGlyf(vMem, numberOfContours);
+						glyph.m_IsSimpleGlyph = true;
 
-						glyph.m_LocalBBox.lowerBound.x = xMin;
-						glyph.m_LocalBBox.lowerBound.y = yMin;
-						glyph.m_LocalBBox.upperBound.x = xMax;
-						glyph.m_LocalBBox.upperBound.y = yMax;
-
-						m_Glyphs.push_back(glyph);
-						printf("-----------------------\n");
+						if (!(vFlags & TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING))
+						{
+							auto g = ParseSimpleGlyf(vMem, numberOfContours);
+							glyph.m_Contours = g.m_Contours;
+							glyph.m_AdvanceX = g.m_AdvanceX;
+							glyph.m_LeftSideBearing = g.m_LeftSideBearing;
+						}
 					}
 					else // composite glyf
 					{
-						printf("Glyph %u : Composite Glyph\n", (uint32_t)i);
-						//compositeGlyph.parse(vMem, vMem->GetPos(), vLength - vMem->GetPos(), numberOfContours);
+						LogStr("Glyph %u : Composite Glyph\n", (uint32_t)i);
+
+						glyph.m_IsSimpleGlyph = false;
 					}
+
+					m_Glyphs.push_back(glyph);
+
+					LogStr("-----------------------\n");
 
 					length = offset;
 				}
@@ -572,7 +637,7 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 	}
 }
 
-ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCountContour)
+TTFRRW::Glyph TTFRRW::TTFRRW::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCountContour)
 {
 	Glyph glyph;
 	
@@ -680,13 +745,13 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 			// convert in final glyph
 
 			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
-			printf("Contours : %i\n", vCountContour);
+			LogStr("Contours : %i\n", vCountContour);
 			for (size_t c = 0; c < vCountContour; c++)
 			{
 				Contour contour;
 
 				size_t pmax = endPtsOfContours[c+1] - endPtsOfContours[c];
-				printf("Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
+				LogStr("Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
 				for (size_t p = 0; p < pmax; p++)
 				{
 					ivec2 pt;
@@ -695,7 +760,7 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 					contour.m_Points.push_back(pt);
 					bool oc = onCurves[endPtsOfContours[c] + p];
 					contour.m_OnCurve.push_back(oc);
-					printf("Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+					LogStr("Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
 				}
 
 				glyph.m_Contours.push_back(contour);
@@ -710,47 +775,47 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 //// PRIVATE TABLES ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-bool ttfrrw::ttfrrw::Assemble_GLYF_Table()
+bool TTFRRW::TTFRRW::Assemble_GLYF_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_LOCA_Table()
+bool TTFRRW::TTFRRW::Assemble_LOCA_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_MAXP_Table()
+bool TTFRRW::TTFRRW::Assemble_MAXP_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_CMAP_Table()
+bool TTFRRW::TTFRRW::Assemble_CMAP_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_HMTX_Table()
+bool TTFRRW::TTFRRW::Assemble_HMTX_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_HHEA_Table()
+bool TTFRRW::TTFRRW::Assemble_HHEA_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_POST_Table()
+bool TTFRRW::TTFRRW::Assemble_POST_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_NAME_Table()
+bool TTFRRW::TTFRRW::Assemble_NAME_Table()
 {
 	return false;
 }
 
-bool ttfrrw::ttfrrw::Assemble_HEAD_Table()
+bool TTFRRW::TTFRRW::Assemble_HEAD_Table()
 {
 	return false;
 }

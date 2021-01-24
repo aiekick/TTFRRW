@@ -7,10 +7,11 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <stdarg.h> // variadic
 #include <utility> // pair
 #include <cmath>
 
-namespace ttfrrw
+namespace TTFRRW
 {
 	///////////////////////////////////////////////////////////////////////
 	///// COMMON///////////////////////////////////////////////////////////
@@ -297,7 +298,8 @@ namespace ttfrrw
 	{
 	public:
 		std::vector<AffineGlyph> m_AffineGlyphs; // composite or color layers
-		
+		bool m_IsSimpleGlyph = true;
+
 	public:
 		Glyph();
 		~Glyph();
@@ -309,10 +311,17 @@ namespace ttfrrw
 
 	typedef uint32_t CodePoint;
 	typedef uint32_t GlyphIndex;
-	
-	class ttfrrw
+
+	typedef int ttfrrwProcessingFlags;
+	enum ttfrrwProcessingFlags_
 	{
-	private: // will be computed by ttfrrw
+		TTFRRW_PROCESSING_FLAG_NONE = 0,
+		TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING = (1 << 0) // on ne parse pas les points, on prend juste des stats de bases
+	};
+
+	class TTFRRW
+	{
+	private: // will be computed by TTFRRW
 		iAABB m_GlobalBBox;
 		int32_t m_AdvanceWidthMax = 0;
 		int32_t m_MinLeftSideBearing = 0;
@@ -338,21 +347,24 @@ namespace ttfrrw
 		std::string m_UrlFontVendor;
 
 	public:
-		ttfrrw();
-		~ttfrrw();
+		TTFRRW();
+		~TTFRRW();
 
-		bool OpenFontFile(const std::string& vFontFilePathName);
+		bool OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags);
+		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags);
+		std::vector<Glyph>* GetGlyphs();
+		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
+		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);
+
 		bool WriteFontFile(const std::string& vFontFilePathName);
-
 		void AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint);
-		Glyph GetGlyph(const CodePoint& vCodePoint);
-
+		
 	private:
 		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vInMem, int* vError);
 		bool WriteMemoryToFile(const std::string& vFilePathName, MemoryStream* vOutMem, int* vError);
 
 	private:
-		void ParseFontFile(MemoryStream* vInMem);
+		void ParseFontFile(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		Glyph ParseSimpleGlyf(MemoryStream* vInMem, int16_t vCountContour);
 
 	private: // write table
