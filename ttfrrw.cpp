@@ -502,16 +502,18 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 
 				if (indexToLocFormat == 0) // short format
 				{
-					for (int i = 0; i < numGlyphs; i++)
+					for (uint16_t i = 0; i < numGlyphs; i++)
 					{
-						glyphsOffsets.push_back(((uint32_t)vMem->ReadUShort()) * 2);
+						uint32_t offset = ((uint32_t)vMem->ReadUShort()) * 2;
+						glyphsOffsets.push_back(offset);
 					}
 				}
 				else if (indexToLocFormat == 1) // long format
 				{
-					for (int i = 0; i < numGlyphs; i++)
+					for (uint16_t i = 0; i < numGlyphs; i++)
 					{
-						glyphsOffsets.push_back((uint32_t)vMem->ReadULong());
+						uint32_t offset = ((uint32_t)vMem->ReadULong());
+						glyphsOffsets.push_back(offset);
 					}
 				}
 			}
@@ -520,13 +522,19 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 			if (tables.find("glyf") != tables.end())
 			{
 				auto tbl = tables["glyf"];
-				vMem->SetPos(tbl.offset);
+				size_t tblOffset = tbl.offset;
+				vMem->SetPos(tblOffset);
 				uint32_t len = tbl.length;
 
 				int length = 0;
-				for (auto& offset : glyphsOffsets) // each glyph
+				for (size_t i = 0; i < (size_t)numGlyphs; i++)
 				{
-					Glyph glyph;
+					if (i == 37)
+						i = 37;
+
+					uint32_t offset = glyphsOffsets[i];
+
+					vMem->SetPos(tblOffset + offset);
 
 					int16_t numberOfContours = (int16_t)vMem->ReadShort();
 					MemoryStream::FWord xMin = vMem->ReadFWord();
@@ -536,18 +544,26 @@ void ttfrrw::ttfrrw::ParseFontFile(MemoryStream* vMem)
 
 					if (numberOfContours >= 0) // simple glyf
 					{
-						vMem->SetPos(tbl.offset + offset);
+						printf("-----------------------\n");
+						printf("Glyph %u : Simple Glyph\n", (uint32_t)i);
 
-						glyph = ParseSimpleGlyf(vMem, numberOfContours);
+						printf("BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
+						
+						auto glyph = ParseSimpleGlyf(vMem, numberOfContours);
+
+						glyph.m_LocalBBox.lowerBound.x = xMin;
+						glyph.m_LocalBBox.lowerBound.y = yMin;
+						glyph.m_LocalBBox.upperBound.x = xMax;
+						glyph.m_LocalBBox.upperBound.y = yMax;
+
+						m_Glyphs.push_back(glyph);
+						printf("-----------------------\n");
 					}
 					else // composite glyf
 					{
+						printf("Glyph %u : Composite Glyph\n", (uint32_t)i);
 						//compositeGlyph.parse(vMem, vMem->GetPos(), vLength - vMem->GetPos(), numberOfContours);
 					}
-
-					AddGlyph(glyph, 0);
-
-					//glyfs.push_back(glyf);
 
 					length = offset;
 				}
@@ -566,10 +582,11 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 		uint16_t instructionLength;
 		std::vector<uint8_t> instructions;
 		std::vector<uint8_t> flags;
+		std::vector<bool> onCurves;
 		std::vector<int16_t> xCoordinates;
 		std::vector<int16_t> yCoordinates;
 
-		if (vCountContour)
+		if (vCountContour >= 0) // this is well simple glyph
 		{
 			for (int i = 0; i < vCountContour; i++)
 				endPtsOfContours.push_back((uint16_t)vMem->ReadShort());
@@ -577,21 +594,32 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 			instructionLength = (uint16_t)vMem->ReadUShort();
 
 			for (int i = 0; i < instructionLength; i++)
-				instructions.push_back(vMem->ReadByte());
+				instructions.push_back((uint8_t)vMem->ReadByte());
+
+			const int32_t SimpleFlagOnCurve = 1;
+			const int32_t SimpleFlagOnXShort = 1 << 1;
+			const int32_t SimpleFlagOnYShort = 1 << 2;
+			const int32_t SimpleFlagOnRepeat = 1 << 3;
+			const int32_t SimpleFlagOnXRepeatSign = 1 << 4;
+			const int32_t SimpleFlagOnYRepeatSign = 1 << 5;
 
 			if (!endPtsOfContours.empty())
 			{
-				int countPoints = endPtsOfContours[endPtsOfContours.size() - 1];
+				int countPoints = endPtsOfContours[vCountContour - 1] + 1;
 				if (countPoints > 0)
 				{
+					xCoordinates.resize(countPoints);
+					yCoordinates.resize(countPoints);
+					onCurves.resize(countPoints);
+
 					uint32_t flag_repeat = 0;
-					int flag = 0;
-					for (int i = 0; i < countPoints; i++)
+					int32_t flag = 0;
+					for (size_t i = 0; i < countPoints; i++)
 					{
 						if (flag_repeat == 0)
 						{
 							flag = vMem->ReadByte();
-							if ((flag & (1 << 3)) == (1 << 3))
+							if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
 							{
 								flag_repeat = vMem->ReadByte();
 							}
@@ -600,23 +628,77 @@ ttfrrw::Glyph ttfrrw::ttfrrw::ParseSimpleGlyf(MemoryStream* vMem, int16_t vCount
 						{
 							flag_repeat--;
 						}
-						flags.push_back((uint8_t)flag);
-					}
-					int shortX = (1 << 1);
-					int shortY = (1 << 2);
-					for (auto& it : flags)
-					{
-						if (it & shortX)
-							xCoordinates.push_back((int16_t)vMem->ReadByte());
-						else
-							xCoordinates.push_back((int16_t)vMem->ReadShort());
 
-						if (it & shortY)
-							yCoordinates.push_back((int16_t)vMem->ReadByte());
-						else
-							yCoordinates.push_back((int16_t)vMem->ReadShort());
+						uint8_t u8Flag = (uint8_t)flag;
+						flags.push_back(u8Flag);
+
+						onCurves[i] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
+					}
+
+					for (size_t i = 0; i < countPoints; i++)
+					{
+						auto flag = flags[i];
+
+						if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
+						{
+							int16_t coord = (int16_t)vMem->ReadByte();
+							coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
+							xCoordinates[i] = coord;
+						}
+						else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
+						{
+							xCoordinates[i] = (int16_t)vMem->ReadShort();
+						}
+						if (i > 0)
+						{
+							xCoordinates[i] += xCoordinates[i - 1U];
+						}
+					}
+
+					for (size_t i = 0; i < countPoints; i++)
+					{
+						auto flag = flags[i];
+
+						if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
+						{
+							int16_t coord = (int16_t)vMem->ReadByte();
+							coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
+							yCoordinates[i] = coord;
+						}
+						else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
+						{
+							yCoordinates[i] = (int16_t)vMem->ReadShort();
+						}
+						if (i > 0)
+						{
+							yCoordinates[i] += yCoordinates[i - 1U];
+						}
 					}
 				}
+			}
+
+			// convert in final glyph
+
+			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
+			printf("Contours : %i\n", vCountContour);
+			for (size_t c = 0; c < vCountContour; c++)
+			{
+				Contour contour;
+
+				size_t pmax = endPtsOfContours[c+1] - endPtsOfContours[c];
+				printf("Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
+				for (size_t p = 0; p < pmax; p++)
+				{
+					ivec2 pt;
+					pt.x = (int32_t)xCoordinates[endPtsOfContours[c] + p];
+					pt.y = (int32_t)yCoordinates[endPtsOfContours[c] + p];
+					contour.m_Points.push_back(pt);
+					bool oc = onCurves[endPtsOfContours[c] + p];
+					contour.m_OnCurve.push_back(oc);
+					printf("Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+				}
+
+				glyph.m_Contours.push_back(contour);
 			}
 		}
 	}

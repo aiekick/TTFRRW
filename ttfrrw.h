@@ -247,11 +247,17 @@ namespace ttfrrw
 	class Contour
 	{
 	public:
-		std::vector<fvec2> m_Points;
+		std::vector<ivec2> m_Points;
+		std::vector<bool> m_OnCurve;
 
 	public:
 		Contour();
 		~Contour();
+
+		bool IsValid()
+		{
+			return !m_Points.empty() && !m_OnCurve.empty();
+		}
 	};
 
 	///////////////////////////////////////////////////////////////////////
@@ -265,6 +271,15 @@ namespace ttfrrw
 		iAABB m_LocalBBox;
 		int32_t m_AdvanceX = 0;
 		int32_t m_LeftSideBearing = 0;
+
+	public:
+		bool IsValid()
+		{
+			for (auto& c : m_Contours)
+			{
+				return c.IsValid(); // au moins un a dessiner on stop la
+			}
+		}
 	};
 
 	class AffineGlyph : public BaseGlyph
