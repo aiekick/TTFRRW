@@ -5,8 +5,8 @@
 
 int main(int, char**argv)
 {
-	ttfrrw::ttfrrw tool;
-	if (tool.OpenFontFile("testfont.ttf"))
+	TTFRRW::TTFRRW ttfrrw;
+	if (ttfrrw.OpenFontFile("testfont.ttf"))
 	{
 		printf("TTFRRW succeed to open testfont.ttf\n");
 	}

@@ -350,8 +350,8 @@ namespace TTFRRW
 		TTFRRW();
 		~TTFRRW();
 
-		bool OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags);
-		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags);
+		bool OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags = 0);
+		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags = 0);
 		std::vector<Glyph>* GetGlyphs();
 		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
 		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);

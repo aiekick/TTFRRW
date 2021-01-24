@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <cerrno>
 
-//#define VERBOSE_MODE
+#define VERBOSE_MODE
 
 ///////////////////////////////////////////////////////////////////////
 //// LOGGING //////////////////////////////////////////////////////////
@@ -493,6 +493,97 @@ void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFl
 
 		uint16_t indexToLocFormat = 0; // head table : loca format
 		uint16_t numGlyphs = 0; // maxp table : count glyphs
+
+		// CMAP
+		if (tables.find("cmap") != tables.end())
+		{
+			auto tbl = tables["cmap"];
+			vMem->SetPos(tbl.offset);
+			uint32_t len = tbl.length;
+
+			uint16_t version = (uint16_t)vMem->ReadUShort();
+			uint16_t numEncodingRecords = (uint16_t)vMem->ReadUShort();
+
+			for (size_t encodingRecord = 0; encodingRecord < (size_t)numEncodingRecords; encodingRecord++)
+			{
+				vMem->SetPos(tbl.offset + 4U);
+
+				uint16_t platformID = (uint16_t)vMem->ReadUShort();
+				uint16_t encodingID = (uint16_t)vMem->ReadUShort();
+				uint32_t offset = (uint16_t)vMem->ReadULong();
+
+				vMem->SetPos(tbl.offset + offset);
+
+				uint16_t format = (uint16_t)vMem->ReadUShort();
+				uint16_t length = (uint16_t)vMem->ReadUShort();
+
+				if (format == 0)
+				{
+					uint16_t language = (uint16_t)vMem->ReadUShort();
+					for (int glyphindex = 0; glyphindex < 256; glyphindex++)
+					{
+						uint8_t codePoint = vMem->ReadByte();
+						m_CodePoints[codePoint] = glyphindex;
+					}
+				}
+				else if (format == 4)
+				{
+					uint16_t language = (uint16_t)vMem->ReadUShort();
+					uint16_t segCountX2 = (uint16_t)vMem->ReadUShort();
+					uint16_t searchRange = (uint16_t)vMem->ReadUShort();
+					uint16_t entrySelector = (uint16_t)vMem->ReadUShort();
+					uint16_t rangeShift = (uint16_t)vMem->ReadUShort();
+
+					std::vector<uint16_t> endCode;
+					uint16_t reservedPad = 0;
+					std::vector<uint16_t> startCode;
+					std::vector<int16_t> idDelta;
+					std::vector<uint16_t> idRangeOffset;
+					std::vector<uint16_t> glyphIdArray;
+
+					int segCount = segCountX2 / 2;
+					for (int i = 0; i < segCount; i++)
+					{
+						endCode.push_back((uint16_t)vMem->ReadUShort());
+					}
+					reservedPad = (uint16_t)vMem->ReadUShort();
+					for (int i = 0; i < segCount; i++)
+					{
+						startCode.push_back((uint16_t)vMem->ReadUShort());
+					}
+					for (int i = 0; i < segCount; i++)
+					{
+						idDelta.push_back((uint16_t)vMem->ReadShort());
+					}
+					for (int i = 0; i < segCount; i++)
+					{
+						idRangeOffset.push_back((uint16_t)vMem->ReadUShort());
+					}
+
+					for (uint16_t codePoint = 0x20; codePoint < 0xFFFF; codePoint++)
+					{
+						// d'abord on va localiser le segment
+						int segment = 0;;
+						for (segment = 0; segment < segCount; segment++)
+						{
+							if (codePoint > startCode[segment] && codePoint < endCode[segment])
+								continue;
+							else
+								break;
+						}
+						if (codePoint > startCode[segment] && codePoint < endCode[segment])
+						{
+							uint16_t glyphId = *(idRangeOffset[segment] / 2 + (codePoint - startCode[segment]) + &idRangeOffset[segment]);
+							m_CodePoints[codePoint] = glyphId;
+						}
+					}
+				}
+				else
+				{
+					LogStr("CMAP Format %u not supported\n", format);
+				}
+			}
+		}
 
 		if (tables.find("head") != tables.end() &&
 			tables.find("maxp") != tables.end() &&
