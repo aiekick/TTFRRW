@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <cerrno>
 
-//#define VERBOSE_MODE
+#define VERBOSE_MODE
 
 ///////////////////////////////////////////////////////////////////////
 //// LOGGING //////////////////////////////////////////////////////////
@@ -479,28 +479,28 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			bool maxpOK = Parse_MAXP_Table(vMem, vFlags);
 			bool locaOK = Parse_LOCA_Table(vMem, vFlags);
 
-			bool glyfOK = false;
-			if (headOK && maxpOK && locaOK) // dependencies
-			{
-				glyfOK = Parse_GLYF_Table(vMem, vFlags);
-			}
-
+			// on fait post avant glyf comme ca 
+			// on pourra mettre le nom directement dans le glyph
 			bool postOK = false;
 			if (maxpOK) // dependencies
-			{
 				postOK = Parse_POST_Table(vMem, vFlags);
-			}
+
+			bool glyfOK = false;
+			if (headOK && maxpOK && locaOK) // dependencies
+				glyfOK = Parse_GLYF_Table(vMem, vFlags);
 
 			bool cpalOK = Parse_CPAL_Table(vMem, vFlags);
 			bool colrOK = false;
 			if (cpalOK) // dependencies
-			{
 				colrOK = Parse_COLR_Table(vMem, vFlags);
-			}
 			
 			// tres permissif, le minimum est d'avoir des glyphs
 			// le reste au besoin on le fera nous meme
 			res = glyfOK;
+		}
+		else
+		{
+			LogStr("ERR : Corrupted Header Table\n");
 		}
 	}
 
@@ -537,7 +537,10 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 		std::string tagString = std::string((char*)tbl.tag);
 		m_TTFR.m_Tables[tagString] = tbl;
 
-		LogStr("Table %s found\n", tagString.c_str());
+		if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+		{
+			LogStr("Table %s found\n", tagString.c_str());
+		}
 	}
 
 	return (!m_TTFR.m_Tables.empty());
@@ -669,20 +672,22 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 							{
 								m_CodePoint_To_GlyphIndex[codePoint] = foundGlyphIndex;
 								m_GlyphIndex_To_CodePoints[foundGlyphIndex].emplace(codePoint);
-								LogStr("CodePoint %u => GlyphIndex %u\n", codePoint, foundGlyphIndex);
+								if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+								{
+									LogStr("CodePoint %u => GlyphIndex %u\n", codePoint, foundGlyphIndex);
+								}
 							}
 							else
 							{
-								LogStr("CodePoint %u => Error\n", codePoint);
+								LogStr("ERR : CodePoint %u => Error\n", codePoint);
 							}
 						}
-
 					}
 				}
 			}
 			else
 			{
-				LogStr("CMAP Format %u not supported for the moment\n", format);
+				LogStr("ERR : CMAP Format %u not supported for the moment\n", format);
 			}
 		}
 
@@ -808,7 +813,10 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			MemoryStream::FWord xMax = vMem->ReadFWord();
 			MemoryStream::FWord yMax = vMem->ReadFWord();
 
-			LogStr("-----------------------\n");
+			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+			{
+				LogStr("-----------------------\n");
+			}
 
 			Glyph glyph;
 			glyph.m_LocalBBox.lowerBound.x = xMin;
@@ -816,17 +824,26 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			glyph.m_LocalBBox.upperBound.x = xMax;
 			glyph.m_LocalBBox.upperBound.y = yMax;
 
-			LogStr("BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
+			if (i < m_GlyphNames.size())
+				glyph.m_Name = m_GlyphNames[i];
+
+			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+			{
+				LogStr("BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
+			}
 
 			if (numberOfContours >= 0) // simple glyf
 			{
-				LogStr("Glyph %u : Simple Glyph\n", (uint32_t)i);
+				if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+				{
+					LogStr("Glyph %u : Simple Glyph\n", (uint32_t)i);
+				}
 
-				glyph.m_IsSimpleGlyph = true;
-
+				glyph.m_IsSimple = true;
+				
 				if (!(vFlags & TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING))
 				{
-					auto g = Parse_Simple_Glyf(vMem, numberOfContours);
+					auto g = Parse_Simple_Glyf(vMem, numberOfContours, vFlags);
 					glyph.m_Contours = g.m_Contours;
 					glyph.m_AdvanceX = g.m_AdvanceX;
 					glyph.m_LeftSideBearing = g.m_LeftSideBearing;
@@ -834,14 +851,20 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else // composite glyf
 			{
-				LogStr("Glyph %u : Composite Glyph\n", (uint32_t)i);
+				if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+				{
+					LogStr("Glyph %u : Composite Glyph\n", (uint32_t)i);
+				}
 
-				glyph.m_IsSimpleGlyph = false;
+				glyph.m_IsSimple = false;
 			}
 
 			m_Glyphs.push_back(glyph);
 
-			LogStr("-----------------------\n");
+			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+			{
+				LogStr("-----------------------\n");
+			}
 
 			length = offset;
 		}
@@ -852,7 +875,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCountContour)
+TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags)
 {
 	Glyph glyph;
 
@@ -960,13 +983,19 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			// convert in final glyph
 
 			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
-			LogStr("Contours : %i\n", vCountContour);
+			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+			{
+				LogStr("Contours : %i\n", vCountContour);
+			}
 			for (size_t c = 0; c < vCountContour; c++)
 			{
 				Contour contour;
 
 				size_t pmax = endPtsOfContours[c + 1] - endPtsOfContours[c];
-				LogStr("Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
+				if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+				{
+					LogStr("Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
+				}
 				for (size_t p = 0; p < pmax; p++)
 				{
 					ivec2 pt;
@@ -975,7 +1004,10 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 					contour.m_Points.push_back(pt);
 					bool oc = onCurves[endPtsOfContours[c] + p];
 					contour.m_OnCurve.push_back(oc);
-					LogStr("Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+					if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+					{
+						LogStr("Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+					}
 				}
 
 				glyph.m_Contours.push_back(contour);
@@ -1070,12 +1102,12 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else
 			{
-				LogStr("POST Glyph count mismatch the Glyph count in MAXP\n");
+				LogStr("ERR : POST Glyph count mismatch the Glyph count in MAXP\n");
 			}
 		}
 		else
 		{
-			LogStr("POST Format %u not supported for the moment\n", format);
+			LogStr("ERR : POST Format %u not supported for the moment\n", format);
 		}
 
 		return true;
@@ -1130,7 +1162,7 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		}
 		else
 		{
-			LogStr("CPAL Format %u not supported for the moment\n", version);
+			LogStr("ERR : CPAL Format %u not supported for the moment\n", version);
 		}
 
 		return true;
@@ -1173,11 +1205,19 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					if (!m_Palettes.empty())
 					{
 						if (lg.paletteID < m_Palettes[0].size())
+						{
 							lg.color = m_Palettes[0][lg.paletteID];
+							if (lg.glyphID < m_Glyphs.size())
+							{
+								m_Glyphs[lg.glyphID].m_Color = lg.color;
+								m_Glyphs[lg.glyphID].m_IsLayer = true;
+							}
+							else
+								LogStr("ERR : COLR Layer.GlyphId >= than glyph count\n", version);
+						}
 						else
-							LogStr("COLR paletteID > than palette entry count\n", version);
+							LogStr("ERR : COLR paletteID > than palette entry count\n", version);
 					}
-
 					m_Glyphs[baseGlyphID].m_LayerGlyphs.push_back(lg);
 				}
 			}

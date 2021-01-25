@@ -377,6 +377,10 @@ namespace TTFRRW
 		iAABB m_LocalBBox;
 		int32_t m_AdvanceX = 0;
 		int32_t m_LeftSideBearing = 0;
+		std::string m_Name;
+		fvec4 m_Color = 1.0f; // color if is a layer
+		bool m_IsLayer = false; // layer
+		bool m_IsSimple = true; // simple or composite
 
 	public:
 		bool IsValid()
@@ -411,7 +415,6 @@ namespace TTFRRW
 	class Glyph : public BaseGlyph
 	{
 	public:
-		bool m_IsSimpleGlyph = true;
 		std::vector<AffineGlyph> m_AffineGlyphs; // composite
 		std::vector<LayerGlyph> m_LayerGlyphs;
 
@@ -428,7 +431,8 @@ namespace TTFRRW
 	enum ttfrrwProcessingFlags_
 	{
 		TTFRRW_PROCESSING_FLAG_NONE = 0,
-		TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING = (1 << 0) // on ne parse pas les points, on prend juste des stats de bases
+		TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING = (1 << 0), // on ne parse pas les points, on prend juste des stats de bases
+		TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS = (1 << 1), // print only the errors to the console
 	};
 
 	class TTFR
@@ -511,7 +515,7 @@ namespace TTFRRW
 		bool Parse_LOCA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_MAXP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour);
+		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags);
 		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
