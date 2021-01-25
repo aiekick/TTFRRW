@@ -360,7 +360,7 @@ namespace TTFRRW
 		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
 		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);
 		GlyphIndex GetGlyphIndexFromCodePoint(const CodePoint& vCodePoint);
-		std::set<CodePoint> GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex);
+		std::set<CodePoint>* GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex);
 
 		bool WriteFontFile(const std::string& vFontFilePathName);
 		void AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint);

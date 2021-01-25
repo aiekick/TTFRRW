@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <cerrno>
 
-#define VERBOSE_MODE
+//#define VERBOSE_MODE
 
 ///////////////////////////////////////////////////////////////////////
 //// LOGGING //////////////////////////////////////////////////////////
@@ -363,16 +363,14 @@ TTFRRW::GlyphIndex TTFRRW::TTFRRW::GetGlyphIndexFromCodePoint(const CodePoint& v
 	return 0;
 }
 
-std::set<TTFRRW::CodePoint> TTFRRW::TTFRRW::GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex)
+std::set<TTFRRW::CodePoint>* TTFRRW::TTFRRW::GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex)
 {
-	std::set<CodePoint> res;
-
 	if (m_GlyphIndex_To_CodePoints.find(vGlyphIndex) != m_GlyphIndex_To_CodePoints.end())
 	{
-		return m_GlyphIndex_To_CodePoints[vGlyphIndex];
+		return &m_GlyphIndex_To_CodePoints[vGlyphIndex];
 	}
 
-	return res;
+	return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////
