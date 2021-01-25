@@ -555,6 +555,7 @@ void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFl
 					{
 						idDelta.push_back((uint16_t)vMem->ReadShort());
 					}
+					size_t idRangeOffsetAddress = vMem->GetPos();
 					for (int i = 0; i < segCount; i++)
 					{
 						idRangeOffset.push_back((uint16_t)vMem->ReadUShort());
@@ -563,18 +564,64 @@ void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFl
 					for (uint16_t codePoint = 0x20; codePoint < 0xFFFF; codePoint++)
 					{
 						// d'abord on va localiser le segment
-						int segment = 0;;
-						for (segment = 0; segment < segCount; segment++)
+						bool found = false;
+						int32_t segment = 0;
+						int32_t start = 0;
+						int32_t end = segCount;
+						while (start != end)
 						{
-							if (codePoint > startCode[segment] && codePoint < endCode[segment])
-								continue;
-							else
-								break;
+							segment = (start + end) / 2;
+							if (codePoint < startCode[segment])  // location is below current location
+								end = segment;
+							else  // is key below the upper bound?
+							{
+								if (codePoint <= endCode[segment])
+								{
+									found = true;
+									break;
+								}
+								// location is above the current location
+								start = segment + 1;
+							}
 						}
-						if (codePoint > startCode[segment] && codePoint < endCode[segment])
+						if (found)
 						{
-							uint16_t glyphId = *(idRangeOffset[segment] / 2 + (codePoint - startCode[segment]) + &idRangeOffset[segment]);
-							m_CodePoints[codePoint] = glyphId;
+							bool glyphIndexFound = false;
+
+							int32_t foundGlyphIndex = 0;
+							
+							int32_t start = startCode[segment];
+							if (codePoint < start)
+							{
+								//NOTDEF;
+							}
+							int32_t id_range_offset = idRangeOffset[segment];
+							if (id_range_offset == 0) 
+							{
+								foundGlyphIndex = (codePoint + idDelta[segment]) % 0x10000; // 0x10000 is 65536
+								glyphIndexFound = true;
+							}
+							else
+							{
+								size_t idRangeOffsetLocation = idRangeOffsetAddress + segment * sizeof(uint16_t);
+								size_t newPos = id_range_offset + idRangeOffsetLocation + (codePoint - start) * 2;
+								vMem->SetPos(newPos);
+								foundGlyphIndex = (uint16_t)vMem->ReadUShort();
+								glyphIndexFound = true;
+							}
+
+							if (glyphIndexFound)
+							{
+								if (foundGlyphIndex < 0xFFFF)
+								{
+									LogStr("CodePoint %u => GlyphIndex %u\n", codePoint, foundGlyphIndex);
+								}
+								else
+								{
+									LogStr("CodePoint %u => Error\n", codePoint);
+								}
+							}
+
 						}
 					}
 				}
