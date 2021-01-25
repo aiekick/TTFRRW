@@ -170,6 +170,11 @@ TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord()
 	return (int16_t)ReadShort();
 }
 
+TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord()
+{
+	return (uint16_t)ReadUShort();
+}
+
 uint32_t TTFRRW::MemoryStream::ReadUInt24()
 {
 	return 0xffffff & (ReadByte() << 16 | ReadByte() << 8 | ReadByte());
@@ -478,6 +483,7 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			bool headOK = Parse_HEAD_Table(vMem, vFlags);
 			bool maxpOK = Parse_MAXP_Table(vMem, vFlags);
 			bool locaOK = Parse_LOCA_Table(vMem, vFlags);
+			bool hheaOK = Parse_HHEA_Table(vMem, vFlags);
 
 			// on fait post avant glyf comme ca 
 			// on pourra mettre le nom directement dans le glyph
@@ -488,6 +494,12 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			bool glyfOK = false;
 			if (headOK && maxpOK && locaOK) // dependencies
 				glyfOK = Parse_GLYF_Table(vMem, vFlags);
+
+			// on fait ca apres glyph comme ca on pourra remplir
+			// les metrics dans le glyph
+			bool hmtxOK = false;
+			if (hheaOK && maxpOK) // dependencies
+				hmtxOK = Parse_HMTX_Table(vMem, vFlags);
 
 			bool cpalOK = Parse_CPAL_Table(vMem, vFlags);
 			bool colrOK = false;
@@ -693,6 +705,10 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 		return true;
 	}
+	else
+	{
+		LogStr("ERR : CMAP Table not found\n");
+	}
 
 	return false;
 }
@@ -725,6 +741,10 @@ bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 		return true;
 	}
+	else
+	{
+		LogStr("ERR : HEAD Table not found\n");
+	}
 
 	return false;
 }
@@ -754,6 +774,10 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		uint16_t maxComponentDepth = (uint16_t)vMem->ReadUShort();
 	
 		return true;
+	}
+	else
+	{
+		LogStr("ERR : MAXP Table not found\n");
 	}
 
 	return false;
@@ -787,6 +811,10 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		}
 
 		return true;
+	}
+	else
+	{
+		LogStr("ERR : LOCA Table not found\n");
 	}
 
 	return false;
@@ -870,6 +898,10 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		}
 
 		return true;
+	}
+	else
+	{
+		LogStr("ERR : GLYF Table not found\n");
 	}
 
 	return false;
@@ -1112,6 +1144,10 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 		return true;
 	}
+	else
+	{
+		LogStr("ERR : POST Table not found\n");
+	}
 
 	return false;
 }
@@ -1149,11 +1185,11 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					
 					vMem->SetPos(tbl.offset + colorRecordsArrayOffset + 4 * colorRecordIndex);
 
-					fvec4 col;
-					col.x = (float)(vMem->ReadByte()) / 255.0f;
-					col.y = (float)(vMem->ReadByte()) / 255.0f;
-					col.z = (float)(vMem->ReadByte()) / 255.0f;
-					col.w = (float)(vMem->ReadByte()) / 255.0f;
+					fvec4 col; // BGRA
+					col.z = (float)(vMem->ReadByte()) / 255.0f; // B
+					col.y = (float)(vMem->ReadByte()) / 255.0f; // G
+					col.x = (float)(vMem->ReadByte()) / 255.0f; // R
+					col.w = (float)(vMem->ReadByte()) / 255.0f; // A
 					
 					m_Palettes[paletteIndex].push_back(col);
 				}
@@ -1166,6 +1202,10 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		}
 
 		return true;
+	}
+	else
+	{
+		LogStr("ERR : CPAL Table not found\n");
 	}
 
 	return false;
@@ -1224,6 +1264,122 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		}
 
 		return true;
+	}
+	else
+	{
+		LogStr("ERR : COLR Table not found\n");
+	}
+
+	return false;
+}
+
+bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+{
+	if (m_TTFR.m_Tables.find("hhea") != m_TTFR.m_Tables.end())
+	{
+		auto tbl = m_TTFR.m_Tables["hhea"];
+		vMem->SetPos(tbl.offset);
+		uint32_t len = tbl.length;
+
+		MemoryStream::Fixed version = vMem->ReadFixed();
+		m_Ascent = (int16_t)vMem->ReadShort();
+		m_Descent = (int16_t)vMem->ReadShort();
+		m_LineGap = (int16_t)vMem->ReadShort();
+		m_AdvanceWidthMax = (uint16_t)vMem->ReadUShort();
+		m_MinLeftSideBearing = (int16_t)vMem->ReadShort();
+		m_MinRightSideBearing = (int16_t)vMem->ReadShort();
+		m_XMaxExtent = (int16_t)vMem->ReadShort();
+		int16_t caretSlopeRise = (int16_t)vMem->ReadShort();
+		int16_t caretSlopeRun = (int16_t)vMem->ReadShort();
+		MemoryStream::FWord caretOffset = (int16_t)vMem->ReadFWord();
+		int16_t reserved1 = (int16_t)vMem->ReadShort();
+		int16_t reserved2 = (int16_t)vMem->ReadShort();
+		int16_t reserved3 = (int16_t)vMem->ReadShort();
+		int16_t reserved4 = (int16_t)vMem->ReadShort();
+		int16_t metricDataFormat = (int16_t)vMem->ReadShort();
+		m_MumOfLongHorMetrics = (int16_t)vMem->ReadShort();
+
+		return true;
+	}
+	else
+	{
+		LogStr("ERR : HHEA Table not found\n");
+	}
+
+	return false;
+}
+
+bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+{
+	if (m_TTFR.m_Tables.find("hmtx") != m_TTFR.m_Tables.end())
+	{
+		auto tbl = m_TTFR.m_Tables["hmtx"];
+		vMem->SetPos(tbl.offset);
+		uint32_t len = tbl.length;
+
+		if (m_MumOfLongHorMetrics > 0 && m_NumGlyphs > 0)
+		{
+			struct longHorMetric
+			{
+				uint16_t advanceWidth = 0;
+				int16_t leftSideBearing = 0;
+			};
+
+			std::vector<longHorMetric> hMetrics;
+			hMetrics.resize(m_MumOfLongHorMetrics);
+			for (GlyphIndex glyphID = 0; glyphID < m_MumOfLongHorMetrics; glyphID++)
+			{
+				longHorMetric lhm;
+				lhm.advanceWidth = (uint16_t)vMem->ReadUShort();
+				lhm.leftSideBearing = (int16_t)vMem->ReadShort();
+				hMetrics[glyphID] = lhm;
+				if (glyphID < m_Glyphs.size())
+				{
+					m_Glyphs[glyphID].m_AdvanceX = lhm.advanceWidth;
+					m_Glyphs[glyphID].m_LeftSideBearing = lhm.leftSideBearing;
+					m_Glyphs[glyphID].m_RightSideBearing = lhm.advanceWidth - 
+						(lhm.leftSideBearing + m_Glyphs[glyphID].m_LocalBBox.upperBound.x - m_Glyphs[glyphID].m_LocalBBox.lowerBound.x);
+				}
+			}
+
+			if (m_NumGlyphs > m_MumOfLongHorMetrics)
+			{
+				std::vector<MemoryStream::FWord> leftSideBearings;
+				size_t leftSideBearingCount = m_NumGlyphs - m_MumOfLongHorMetrics;
+				leftSideBearings.resize(leftSideBearingCount);
+				for (GlyphIndex idx = 0; idx < leftSideBearingCount; idx++)
+				{
+					leftSideBearings[idx] = vMem->ReadFWord();
+					GlyphIndex glyphID = m_MumOfLongHorMetrics + idx;
+					if (glyphID < m_Glyphs.size())
+					{
+						size_t lastMetric = m_MumOfLongHorMetrics - 1;
+						m_Glyphs[glyphID].m_AdvanceX = hMetrics[lastMetric].advanceWidth;
+						m_Glyphs[glyphID].m_LeftSideBearing = leftSideBearings[idx];
+						m_Glyphs[glyphID].m_RightSideBearing = hMetrics[lastMetric].advanceWidth -
+							(hMetrics[lastMetric].leftSideBearing + m_Glyphs[glyphID].m_LocalBBox.upperBound.x - m_Glyphs[glyphID].m_LocalBBox.lowerBound.x);
+					}
+				}
+			}
+			else
+			{
+				if (m_NumGlyphs < m_MumOfLongHorMetrics)
+					LogStr("ERR : HMTX Glyph Count < to Long HMetrics Count\n");
+			}
+
+			return true;
+		}
+		else
+		{
+			if (m_MumOfLongHorMetrics <= 0)
+				LogStr("ERR : HMTX Mum Of Long HMetrics must be > to 0\n");
+			if (m_NumGlyphs <= 0)
+				LogStr("ERR : HMTX Count Glyphs must be > to 0\n");
+		}
+	}
+	else
+	{
+		LogStr("ERR : HMTX Table not found\n");
 	}
 
 	return false;

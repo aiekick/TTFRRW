@@ -332,6 +332,7 @@ namespace TTFRRW
 		int32_t ReadUShort();
 		int32_t ReadShort();
 		FWord ReadFWord();
+		UFWord ReadUFWord();
 		uint32_t ReadUInt24();
 		uint64_t ReadULong();
 		uint32_t ReadULongAsInt();
@@ -377,6 +378,7 @@ namespace TTFRRW
 		iAABB m_LocalBBox;
 		int32_t m_AdvanceX = 0;
 		int32_t m_LeftSideBearing = 0;
+		int32_t m_RightSideBearing = 0;
 		std::string m_Name;
 		fvec4 m_Color = 1.0f; // color if is a layer
 		bool m_IsLayer = false; // layer
@@ -457,10 +459,7 @@ namespace TTFRRW
 		
 	private: // will be computed by TTFRRW
 		iAABB m_GlobalBBox;
-		int32_t m_AdvanceWidthMax = 0;
-		int32_t m_MinLeftSideBearing = 0;
-		int32_t m_MinRightSideBearing = 0;
-
+		
 	private: // must be defined by user
 		std::vector<Glyph> m_Glyphs; // bd des glyphs
 		std::vector<std::string> m_GlyphNames; // bd des noms
@@ -469,10 +468,14 @@ namespace TTFRRW
 		// 1 glyphIndex => can be many codePoint's
 		std::map<GlyphIndex, std::set<CodePoint>> m_GlyphIndex_To_CodePoints;
 
-		int32_t m_Ascent = 0;
-		int32_t m_Descent = 0;
-		int32_t m_LineGap = 0;
-		
+		int16_t m_Ascent = 0;
+		int16_t m_Descent = 0;
+		int16_t m_LineGap = 0;
+		uint16_t m_AdvanceWidthMax = 0;
+		int16_t m_MinLeftSideBearing = 0;
+		int16_t m_MinRightSideBearing = 0;
+		int16_t m_XMaxExtent = 0;
+
 		std::string m_FontCopyright;
 		std::string m_FontFamily;
 		std::string m_FontSubFamily;
@@ -507,6 +510,7 @@ namespace TTFRRW
 		uint16_t m_NumGlyphs = 0; // maxp table : count glyphs
 		std::vector<uint32_t> m_GlyphsOffsets; // loca table : glyphs address
 		std::vector<std::vector<fvec4>> m_Palettes; // palette > colors > color
+		int16_t m_MumOfLongHorMetrics = 0; // fromm hhea for hmtx
 
 		bool Parse_Font_File(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_Table_Header(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
@@ -519,7 +523,9 @@ namespace TTFRRW
 		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		
+		bool Parse_HHEA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_HMTX_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+
 	private: // write table
 		bool Assemble_GLYF_Table();
 		bool Assemble_LOCA_Table();
