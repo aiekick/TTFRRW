@@ -353,6 +353,28 @@ TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithCodePoint(const CodePoint& vCodePoint
 	return nullptr;
 }
 
+TTFRRW::GlyphIndex TTFRRW::TTFRRW::GetGlyphIndexFromCodePoint(const CodePoint& vCodePoint)
+{
+	if (m_CodePoint_To_GlyphIndex.find(vCodePoint) != m_CodePoint_To_GlyphIndex.end())
+	{
+		return m_CodePoint_To_GlyphIndex[vCodePoint];
+	}
+
+	return 0;
+}
+
+std::set<TTFRRW::CodePoint> TTFRRW::TTFRRW::GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex)
+{
+	std::set<CodePoint> res;
+
+	if (m_GlyphIndex_To_CodePoints.find(vGlyphIndex) != m_GlyphIndex_To_CodePoints.end())
+	{
+		return m_GlyphIndex_To_CodePoints[vGlyphIndex];
+	}
+
+	return res;
+}
+
 ///////////////////////////////////////////////////////////////////////
 //// PRIVATE FILE / STREAM ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -520,10 +542,11 @@ void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFl
 				if (format == 0)
 				{
 					uint16_t language = (uint16_t)vMem->ReadUShort();
-					for (int glyphindex = 0; glyphindex < 256; glyphindex++)
+					for (int glyphIndex = 0; glyphIndex < 256; glyphIndex++)
 					{
 						uint8_t codePoint = vMem->ReadByte();
-						m_CodePoints[codePoint] = glyphindex;
+						m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
+						m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
 					}
 				}
 				else if (format == 4)
@@ -593,7 +616,7 @@ void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFl
 							int32_t start = startCode[segment];
 							if (codePoint < start)
 							{
-								//NOTDEF;
+								//notdef;
 							}
 							int32_t id_range_offset = idRangeOffset[segment];
 							if (id_range_offset == 0) 
@@ -614,6 +637,8 @@ void TTFRRW::TTFRRW::ParseFontFile(MemoryStream* vMem, ttfrrwProcessingFlags vFl
 							{
 								if (foundGlyphIndex < 0xFFFF)
 								{
+									m_CodePoint_To_GlyphIndex[codePoint] = foundGlyphIndex;
+									m_GlyphIndex_To_CodePoints[foundGlyphIndex].emplace(codePoint);
 									LogStr("CodePoint %u => GlyphIndex %u\n", codePoint, foundGlyphIndex);
 								}
 								else

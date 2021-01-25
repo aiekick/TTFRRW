@@ -329,8 +329,12 @@ namespace TTFRRW
 
 	private: // must be defined by user
 		std::vector<Glyph> m_Glyphs; // bd des glyph
-		std::map<CodePoint, GlyphIndex> m_CodePoints;
-		
+
+		// 1 codePoint => 1 glyphIndex
+		std::map<CodePoint, GlyphIndex> m_CodePoint_To_GlyphIndex;
+		// 1 glyphIndex => possible plusieurs codePoint
+		std::map<GlyphIndex, std::set<CodePoint>> m_GlyphIndex_To_CodePoints;
+
 	public: // must be defined by user
 		int32_t m_Ascent = 0;
 		int32_t m_Descent = 0;
@@ -355,6 +359,8 @@ namespace TTFRRW
 		std::vector<Glyph>* GetGlyphs();
 		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
 		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);
+		GlyphIndex GetGlyphIndexFromCodePoint(const CodePoint& vCodePoint);
+		std::set<CodePoint> GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex);
 
 		bool WriteFontFile(const std::string& vFontFilePathName);
 		void AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint);
