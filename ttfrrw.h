@@ -319,8 +319,26 @@ namespace TTFRRW
 		TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING = (1 << 0) // on ne parse pas les points, on prend juste des stats de bases
 	};
 
+	class TTFR
+	{
+	public:
+		struct TableStruct
+		{
+			uint8_t tag[5] = {};
+			uint32_t checkSum = 0;
+			uint32_t offset = 0;
+			uint32_t length = 0;
+		};
+
+	public:
+		std::unordered_map<std::string, TTFR::TableStruct> m_Tables;
+	};
+
 	class TTFRRW
 	{
+	private:
+		TTFR m_TTFR;
+		
 	private: // will be computed by TTFRRW
 		iAABB m_GlobalBBox;
 		int32_t m_AdvanceWidthMax = 0;
@@ -328,14 +346,13 @@ namespace TTFRRW
 		int32_t m_MinRightSideBearing = 0;
 
 	private: // must be defined by user
-		std::vector<Glyph> m_Glyphs; // bd des glyph
-
+		std::vector<Glyph> m_Glyphs; // bd des glyphs
+		std::vector<std::string> m_GlyphNames; // bd des noms
 		// 1 codePoint => 1 glyphIndex
 		std::map<CodePoint, GlyphIndex> m_CodePoint_To_GlyphIndex;
-		// 1 glyphIndex => possible plusieurs codePoint
+		// 1 glyphIndex => can be many codePoint's
 		std::map<GlyphIndex, std::set<CodePoint>> m_GlyphIndex_To_CodePoints;
 
-	public: // must be defined by user
 		int32_t m_Ascent = 0;
 		int32_t m_Descent = 0;
 		int32_t m_LineGap = 0;
@@ -369,9 +386,21 @@ namespace TTFRRW
 		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vInMem, int* vError);
 		bool WriteMemoryToFile(const std::string& vFilePathName, MemoryStream* vOutMem, int* vError);
 
-	private:
-		void ParseFontFile(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		Glyph ParseSimpleGlyf(MemoryStream* vInMem, int16_t vCountContour);
+	private: // read table
+		uint16_t m_IndexToLocFormat = 0; // head table : loca format
+		uint16_t m_NumGlyphs = 0; // maxp table : count glyphs
+		std::vector<uint32_t> m_GlyphsOffsets; // loca table : glyphs address
+
+		bool Parse_Font_File(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_Table_Header(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_CMAP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_HEAD_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_LOCA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_MAXP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour);
+		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 
 	private: // write table
 		bool Assemble_GLYF_Table();
