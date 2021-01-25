@@ -491,8 +491,13 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 				postOK = Parse_POST_Table(vMem, vFlags);
 			}
 
-			bool colrOK = Parse_COLR_Table(vMem, vFlags);
-
+			bool cpalOK = Parse_CPAL_Table(vMem, vFlags);
+			bool colrOK = false;
+			if (cpalOK) // dependencies
+			{
+				colrOK = Parse_COLR_Table(vMem, vFlags);
+			}
+			
 			// tres permissif, le minimum est d'avoir des glyphs
 			// le reste au besoin on le fera nous meme
 			res = glyfOK;
@@ -1033,7 +1038,6 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			if (numberOfGlyphs == m_NumGlyphs)
 			{
 				std::vector<uint16_t> glyphNameIndex;
-				
 				for (int i = 0; i < numberOfGlyphs; i++)
 				{
 					glyphNameIndex.push_back((uint16_t)vMem->ReadUShort());
@@ -1080,6 +1084,61 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
+bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+{
+	if (m_TTFR.m_Tables.find("CPAL") != m_TTFR.m_Tables.end())
+	{
+		auto tbl = m_TTFR.m_Tables["CPAL"];
+		vMem->SetPos(tbl.offset);
+		uint32_t len = tbl.length;
+
+		uint16_t version = (uint16_t)vMem->ReadUShort();
+
+		if (version == 0)
+		{
+			uint16_t numPaletteEntries = (uint16_t)vMem->ReadUShort();
+			uint16_t numPalettes = (uint16_t)vMem->ReadUShort();
+			uint16_t numColorRecords = (uint16_t)vMem->ReadUShort();
+			uint32_t colorRecordsArrayOffset = (uint32_t)vMem->ReadULong();
+
+			std::vector<uint16_t> colorRecordIndices; // numPalettes
+			colorRecordIndices.resize(numPalettes);
+			for (int paletteIndex = 0; paletteIndex < numPalettes; paletteIndex++)
+			{
+				colorRecordIndices[paletteIndex] = (uint16_t)vMem->ReadUShort();
+			}
+
+			m_Palettes.resize(numPalettes);
+			for (int paletteIndex = 0; paletteIndex < numPalettes; paletteIndex++)
+			{
+				for (int paletteEntryIndex = 0; paletteEntryIndex < numPaletteEntries; paletteEntryIndex++)
+				{
+					uint32_t colorRecordIndex = colorRecordIndices[paletteIndex] + paletteEntryIndex;
+					
+					vMem->SetPos(tbl.offset + colorRecordsArrayOffset + 4 * colorRecordIndex);
+
+					fvec4 col;
+					col.x = (float)(vMem->ReadByte()) / 255.0f;
+					col.y = (float)(vMem->ReadByte()) / 255.0f;
+					col.z = (float)(vMem->ReadByte()) / 255.0f;
+					col.w = (float)(vMem->ReadByte()) / 255.0f;
+					
+					m_Palettes[paletteIndex].push_back(col);
+				}
+			}
+
+		}
+		else
+		{
+			LogStr("CPAL Format %u not supported for the moment\n", version);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
 	if (m_TTFR.m_Tables.find("COLR") != m_TTFR.m_Tables.end())
@@ -1097,18 +1156,31 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		for (uint16_t i = 0; i < numBaseGlyphRecords; i++)
 		{
 			vMem->SetPos(tbl.offset + baseGlyphRecordsOffset + i * 6);
-			uint16_t glyphID = (uint16_t)vMem->ReadUShort();
+			uint16_t baseGlyphID = (uint16_t)vMem->ReadUShort();
 			uint16_t firstLayerIndex = (uint16_t)vMem->ReadUShort();
 			uint16_t numLayers = (uint16_t)vMem->ReadUShort();
 
-		}
+			if (baseGlyphID < m_Glyphs.size())
+			{
+				for (uint16_t j = 0; j < numLayers; j++)
+				{
+					vMem->SetPos(tbl.offset + layerRecordsOffset + (firstLayerIndex + j) * 4);
+					LayerGlyph lg;
+					lg.glyphID = (uint16_t)vMem->ReadUShort();
+					lg.paletteID = (uint16_t)vMem->ReadUShort();
+					// if CPAL would have been parsed before, i could directly write the palette color
+					// we not select the palette (its is not defiend by font but by app, so by design)
+					if (!m_Palettes.empty())
+					{
+						if (lg.paletteID < m_Palettes[0].size())
+							lg.color = m_Palettes[0][lg.paletteID];
+						else
+							LogStr("COLR paletteID > than palette entry count\n", version);
+					}
 
-		for (uint16_t i = 0; i < numLayerRecords; i++)
-		{
-			vMem->SetPos(tbl.offset + layerRecordsOffset + i * 4);
-			uint16_t glyphID = (uint16_t)vMem->ReadUShort();
-			uint16_t paletteIndex = (uint16_t)vMem->ReadUShort();
-
+					m_Glyphs[baseGlyphID].m_LayerGlyphs.push_back(lg);
+				}
+			}
 		}
 
 		return true;

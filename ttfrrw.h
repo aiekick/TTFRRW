@@ -13,6 +13,10 @@
 
 namespace TTFRRW
 {
+	typedef uint16_t CodePoint;
+	typedef uint16_t GlyphIndex;
+	typedef uint16_t PaletteIndex;
+
 	///////////////////////////////////////////////////////////////////////
 	///// COMMON///////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
@@ -173,6 +177,107 @@ namespace TTFRRW
 	typedef AABB<float> fAABB;
 
 	///////////////////////////////////////////////////////////////////////
+	///// VEc4 ////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+
+	template <typename T>
+	struct vec4
+	{
+		T x, y, z, w;
+		vec4() : x((T)0), y((T)0), z((T)0), w((T)0) {}
+		template <typename U> vec4<T>(vec4<U> a) { x = (T)a.x; y = (T)a.y; z = (T)a.z; w = (T)a.w; }
+		vec4(vec2<T> xy, vec2<T> zw) : x(xy.x), y(xy.y), z(zw.x), w(zw.y) {}
+		vec4(T xyzw) : x(xyzw), y(xyzw), z(xyzw), w(xyzw) {}
+		vec4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {}
+		void Set(T vX, T vY, T vZ, T vW) { x = vX; y = vY; z = vZ; w = vW; }
+		vec4 operator -() const { return vec4(-x, -y, -z, -w); }
+		vec2<T> SizeLBRT() { return vec2<T>(z - x, w - y); }// Considere vec4 as a rect with LBRT for have size LBRT Mean => x = Left, y = Bottom, z = Right, w = Top
+		vec2<T> xy() { return vec2<T>(x, y); }
+		vec2<T> zw() { return vec2<T>(z, w); }
+		vec2<T> pos() { return xy(); }
+		vec2<T> size() { return zw(); }
+		T operator [] (const int& i)
+		{
+			switch (i)
+			{
+			case 0: return x;
+			case 1: return y;
+			case 2: return z;
+			case 3: return w;
+			}
+			assert(false);
+			return 0;
+		}
+		void Set(const int& i, T v)
+		{
+			switch (i)
+			{
+			case 0: x = v; break;
+			case 1: y = v; break;
+			case 2: z = v; break;
+			case 3: w = v; break;
+			}
+		}
+		void operator += (const vec4& v) { x += v.x; y += v.y; z += v.z; w += v.w; }
+		bool operator == (const vec4& v) { return (x == v.x && y == v.y && z == v.z && w == v.w); }
+		bool operator != (const vec4& v) { return (x != v.x || y != v.y || z != v.z || w != v.w); }
+		void operator -= (const vec4& v) { x -= v.x; y -= v.y; z -= v.z; w -= v.w; }
+		void operator *= (T a) { x *= a; y *= a; z *= a; w *= a; }
+		void operator /= (T a) { x /= a; y /= a; z /= a; w /= a; }
+		T length() { return sqrtf(lengthSquared()); }
+		T lengthSquared() { return x * x + y * y + z * z + w * w; }
+		T normalize() { T _length = length(); if (_length < (T)1e-5)return (T)0; T _invLength = (T)1 / _length; x *= _invLength; y *= _invLength; z *= _invLength; w *= _invLength; return _length; }
+		vec4<T> GetNormalized() { vec4<T> n = vec4<T>(x, y, z, w); n.normalize(); return n; }
+		bool emptyAND() { return x == (T)0 && y == (T)0 && z == (T)0 && w == (T)0; }
+		bool emptyOR() { return x == (T)0 || y == (T)0 || z == (T)0 || w == (T)0; }
+		T sum() { return x + y + z + w; }
+		T sumAbs() { return abs<T>(x) + abs<T>(y) + abs<T>(z) + abs<T>(w); }
+		std::string string(char c = ';') { return toStr(x) + c + toStr(y) + c + toStr(z) + c + toStr(w); }
+	};
+	template <typename T> inline vec4<T> operator + (vec4<T> v, T f) { return vec4<T>(v.x + f, v.y + f, v.z + f, v.w + f); }
+	template <typename T> inline vec4<T> operator + (vec4<T> v, vec4<T> f) { return vec4<T>(v.x + f.x, v.y + f.y, v.z + f.z, v.w + f.w); }
+	template <typename T> inline vec4<T> operator - (vec4<T> v, T f) { return vec4<T>(v.x - f, v.y - f, v.z - f, v.w - f); }
+	template <typename T> inline vec4<T> operator - (T f, vec4<T> v) { return vec4<T>(f - v.x, f - v.y, f - v.z, f - v.w); }
+	template <typename T> inline vec4<T> operator - (vec4<T> v, vec4<T> f) { return vec4<T>(v.x - f.x, v.y - f.y, v.z - f.z, v.w - f.w); }
+	template <typename T> inline vec4<T> operator * (vec4<T> v, T f) { return vec4<T>(v.x * f, v.y * f, v.z * f, v.w * f); }
+	template <typename T> inline vec4<T> operator * (vec4<T> v, vec4<T> f) { return vec4<T>(v.x * f.x, v.y * f.y, v.z * f.z, v.w * f.w); }
+	template <typename T> inline vec4<T> operator / (vec4<T> v, T f) { return vec4<T>(v.x / f, v.y / f, v.z / f, v.w / f); }
+	template <typename T> inline vec4<T> operator / (vec4<T> v, vec4<T> f) { return vec4<T>(v.x / f.x, v.y / f.y, v.z / f.z, v.w / f.w); }
+	template <typename T> inline bool operator < (vec4<T> v, vec4<T> f) { return v.x < f.x&& v.y < f.y&& v.z < f.z&& v.w < f.w; }
+	template <typename T> inline bool operator < (vec4<T> v, T f) { return v.x < f&& v.y < f&& v.z < f&& v.w < f; }
+	template <typename T> inline bool operator > (vec4<T> v, vec4<T> f) { return v.x > f.x && v.y > f.y && v.z > f.z && v.w > f.w; }
+	template <typename T> inline bool operator > (vec4<T> v, T f) { return v.x > f && v.y > f && v.z > f && v.w > f; }
+	template <typename T> inline bool operator <= (vec4<T> v, vec4<T> f) { return v.x <= f.x && v.y <= f.y && v.z <= f.z && v.w <= f.w; }
+	template <typename T> inline bool operator <= (vec4<T> v, T f) { return v.x <= f && v.y <= f && v.z <= f && v.w <= f; }
+	template <typename T> inline bool operator >= (vec4<T> v, vec4<T> f) { return v.x >= f.x && v.y >= f.y && v.z >= f.z && v.w >= f.w; }
+	template <typename T> inline bool operator >= (vec4<T> v, T f) { return v.x >= f && v.y >= f && v.z >= f && v.w >= f; }
+	template <typename T> inline bool operator == (vec4<T> v, vec4<T> f) { return f.x == v.x && f.y == v.y && f.z == v.z && f.w == v.w; }
+	template <typename T> inline bool operator != (vec4<T> v, vec4<T> f) { return f.x != v.x || f.y != v.y || f.z != v.z || f.w != v.w; }
+	template <typename T> inline vec4<T> mini(vec4<T> a, vec4<T> b) { return vec4<T>(mini<T>(a.x, b.x), mini<T>(a.y, b.y), mini<T>(a.z, b.z), mini<T>(a.w, b.w)); }
+	template <typename T> inline vec4<T> maxi(vec4<T> a, vec4<T> b) { return vec4<T>(maxi<T>(a.x, b.x), maxi<T>(a.y, b.y), maxi<T>(a.z, b.z), maxi<T>(a.w, b.w)); }
+	template <typename T> inline vec4<T> floor(vec4<T> a) { return vec4<T>(floor<T>(a.x), floor<T>(a.y), floor<T>(a.z), floor<T>(a.w)); }
+	template <typename T> inline vec4<T> ceil(vec4<T> a) { return vec4<T>(ceil<T>(a.x), ceil<T>(a.y), ceil<T>(a.z), ceil<T>(a.w)); }
+	template <typename T> inline vec4<T> abs(vec4<T> a) { return vec4<T>(abs<T>(a.x), abs<T>(a.y), abs<T>(a.z), abs<T>(a.w)); }
+	template <typename T> inline vec4<T> sign(vec4<T> a) { return vec4<T>(a.x < (T)0 ? (T)-1 : (T)1, a.y < (T)0 ? (T)-1 : 1, a.z < (T)0 ? (T)-1 : (T)1, a.w < (T)0 ? (T)-1 : (T)1); }
+	template <typename T> inline vec4<T> sin(vec4<T> a) { return vec4<T>(sin<T>(a.x), sin<T>(a.y), sin<T>(a.z), sin<T>(a.w)); }
+	template <typename T> inline vec4<T> cos(vec4<T> a) { return vec4<T>(cos<T>(a.x), cos<T>(a.y), cos<T>(a.z), cos<T>(a.w)); }
+	template <typename T> inline vec4<T> tan(vec4<T> a) { return vec4<T>(tan<T>(a.x), tan<T>(a.y), tan<T>(a.z), tan<T>(a.w)); }
+	typedef vec4<double> dvec4;
+	typedef vec4<float> fvec4;
+	typedef vec4<bool> bvec4;
+	typedef vec4<int> ivec4;
+	typedef vec4<int8_t> i8vec4;
+	typedef vec4<int16_t> i16vec4;
+	typedef vec4<int32_t> ivec4;
+	typedef vec4<int32_t> i32vec4;
+	typedef vec4<int64_t> i64vec4;
+	typedef vec4<uint8_t> u8vec4;
+	typedef vec4<uint16_t> u16vec4;
+	typedef vec4<uint32_t> uvec4;
+	typedef vec4<uint32_t> u32vec4;
+	typedef vec4<uint64_t> u64vec4;
+
+	///////////////////////////////////////////////////////////////////////
 	///// MEMORY STREAM ///////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
@@ -283,22 +388,32 @@ namespace TTFRRW
 		}
 	};
 
-	class AffineGlyph : public BaseGlyph
+	class AffineGlyph
 	{
 	public:
 		fvec2 m_Translation;
 		fvec2 m_Scale;
+		GlyphIndex glyphID = 0;
 
 	public:
 		AffineGlyph();
 		~AffineGlyph();
 	};
 
+	class LayerGlyph
+	{
+	public:
+		GlyphIndex glyphID = 0;
+		PaletteIndex paletteID = 0;
+		fvec4 color;
+	};
+
 	class Glyph : public BaseGlyph
 	{
 	public:
-		std::vector<AffineGlyph> m_AffineGlyphs; // composite or color layers
 		bool m_IsSimpleGlyph = true;
+		std::vector<AffineGlyph> m_AffineGlyphs; // composite
+		std::vector<LayerGlyph> m_LayerGlyphs;
 
 	public:
 		Glyph();
@@ -308,9 +423,6 @@ namespace TTFRRW
 	///////////////////////////////////////////////////////////////////////
 	///// MAIN CLASS TTFRRW ///////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
-
-	typedef uint32_t CodePoint;
-	typedef uint32_t GlyphIndex;
 
 	typedef int ttfrrwProcessingFlags;
 	enum ttfrrwProcessingFlags_
@@ -390,6 +502,7 @@ namespace TTFRRW
 		uint16_t m_IndexToLocFormat = 0; // head table : loca format
 		uint16_t m_NumGlyphs = 0; // maxp table : count glyphs
 		std::vector<uint32_t> m_GlyphsOffsets; // loca table : glyphs address
+		std::vector<std::vector<fvec4>> m_Palettes; // palette > colors > color
 
 		bool Parse_Font_File(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_Table_Header(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
@@ -400,8 +513,9 @@ namespace TTFRRW
 		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour);
 		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
 		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-
+		
 	private: // write table
 		bool Assemble_GLYF_Table();
 		bool Assemble_LOCA_Table();
