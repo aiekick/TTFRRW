@@ -12,7 +12,8 @@
 #include <utility> // pair
 #include <cmath>
 #include <chrono> // profiler
-
+#include <thread>
+#include <atomic>
 
 namespace TTFRRW
 {
@@ -511,6 +512,10 @@ namespace TTFRRW
 		}
 	};
 
+#define TTFRRW_ATOMIC_PARAMS std::atomic<bool>* vWorking, std::atomic<float>* vProgress, std::atomic<uint32_t>* vObjectCount
+#define TTFRRW_ATOMIC_PARAMS_DEFAULT std::atomic<bool>* vWorking = 0, std::atomic<float>* vProgress = 0, std::atomic<uint32_t>* vObjectCount = 0
+#define TTFRRW_ATOMIC_PARAMS_BY_REF std::ref(vWorking), std::ref(vProgress), std::ref(vObjectCount)
+
 	class TTFRRW
 	{
 	private:
@@ -541,10 +546,14 @@ namespace TTFRRW
 		TTFRRW();
 		~TTFRRW();
 
-		void Clear();
-
-		bool OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags = 0, const char* vDebugInfos = "");
-		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags = 0, const char* vDebugInfos = "");
+		bool OpenFontFile(const std::string& vFontFilePathName, 
+			ttfrrwProcessingFlags vFlags = 0, 
+			const char* vDebugInfos = "", 
+			TTFRRW_ATOMIC_PARAMS_DEFAULT);
+		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, 
+			ttfrrwProcessingFlags vFlags = 0, 
+			const char* vDebugInfos = "",
+			TTFRRW_ATOMIC_PARAMS_DEFAULT);
 		std::vector<Glyph>* GetGlyphs();
 		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
 		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);
@@ -578,20 +587,21 @@ namespace TTFRRW
 		std::vector<std::vector<fvec4>> m_Palettes; // palette > colors > color
 		int16_t m_MumOfLongHorMetrics = 0; // fromm hhea for hmtx
 
+		void Clear(TTFRRW_ATOMIC_PARAMS);
 		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vInMem, int* vError);
-		bool Parse_Font_File(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_Table_Header(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_CMAP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_HEAD_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_LOCA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_MAXP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags);
-		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_HHEA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
-		bool Parse_HMTX_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags);
+		bool Parse_Font_File(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_Table_Header(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_CMAP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_HEAD_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_LOCA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_MAXP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_HHEA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_HMTX_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 
 	//////////////////////////////////////////////////////////////////////////////
 	//// WRITE TABLE /////////////////////////////////////////////////////////////

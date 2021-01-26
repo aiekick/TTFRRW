@@ -381,6 +381,10 @@ TTFRRW::Glyph::~Glyph()
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
+#define ATOMIC_RETURN_IF_STOP_WORKING(v) if (vWorking) if (!vWorking->load()) return v;
+#define ATOMIC_PROGRESS_ADD(v) if (vProgress) vProgress->store(vProgress->load() + v)
+#define ATOMIC_OBJECTS_COUNT_INC if (vObjectCount) vObjectCount->store(vObjectCount->load() + 1U)
+
 TTFRRW::TTFRRW::TTFRRW()
 {
 
@@ -391,8 +395,11 @@ TTFRRW::TTFRRW::~TTFRRW()
 
 }
 
-void TTFRRW::TTFRRW::Clear()
+void TTFRRW::TTFRRW::Clear(TTFRRW_ATOMIC_PARAMS)
 {
+	vProgress->store(0.0f);
+	vObjectCount->store(0U);
+
 	m_TTFInfos = TTFInfos();
 	m_TTFProfiler.Reset();
 
@@ -419,11 +426,13 @@ void TTFRRW::TTFRRW::Clear()
 	m_GlyphsOffsets.clear();
 	m_Palettes.clear();
 	m_MumOfLongHorMetrics = 0;
-
-	
 }
 
-bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags, const char* vDebugInfos)
+bool TTFRRW::TTFRRW::OpenFontFile(
+	const std::string& vFontFilePathName, 
+	ttfrrwProcessingFlags vFlags, 
+	const char* vDebugInfos,
+	TTFRRW_ATOMIC_PARAMS)
 {
 	bool res = false;
 
@@ -436,7 +445,7 @@ bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwPr
 	res = LoadFileToMemory(vFontFilePathName, &mem, &error);
 	if (res)
 	{
-		res = Parse_Font_File(&mem, vFlags);
+		res = Parse_Font_File(&mem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 	}
 
 	mainProfiler.end();
@@ -445,7 +454,11 @@ bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwPr
 	return res;
 }
 
-bool TTFRRW::TTFRRW::OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags, const char* vDebugInfos)
+bool TTFRRW::TTFRRW::OpenFontStream(
+	uint8_t* vStream, size_t vStreamSize, 
+	ttfrrwProcessingFlags vFlags, 
+	const char* vDebugInfos,
+	TTFRRW_ATOMIC_PARAMS)
 {
 	bool res = false;
 
@@ -458,7 +471,7 @@ bool TTFRRW::TTFRRW::OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrw
 
 		mem.Set(vStream, vStreamSize);
 
-		res = Parse_Font_File(&mem, vFlags);
+		res = Parse_Font_File(&mem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 	}
 
 	mainProfiler.end();
@@ -636,7 +649,7 @@ bool TTFRRW::TTFRRW::WriteMemoryToFile(
 //// PRIVATE PARSER ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	// la loca contient la position des glyphs et leur taille
 	// la maxp contient le nombre de glyphs
@@ -655,20 +668,30 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 
 	if (vMem)
 	{
-		Clear();
+		Clear(TTFRRW_ATOMIC_PARAMS_BY_REF);
 
 		if (vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_PROFILER)
 		{
 			printf("Profiler Started\n");
 		}
 
-		if (Parse_Table_Header(vMem, vFlags))
+		if (Parse_Table_Header(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF))
 		{
-			/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags);
-			bool headOK = Parse_HEAD_Table(vMem, vFlags);
-			bool maxpOK = Parse_MAXP_Table(vMem, vFlags);
-			bool locaOK = Parse_LOCA_Table(vMem, vFlags);
-			bool hheaOK = Parse_HHEA_Table(vMem, vFlags);
+			/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
+			ATOMIC_PROGRESS_ADD(0.1f);	// 0.1
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+			bool headOK = Parse_HEAD_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
+			ATOMIC_PROGRESS_ADD(0.1f);	// 0.2
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+			bool maxpOK = Parse_MAXP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
+			ATOMIC_PROGRESS_ADD(0.1f);	// 0.3
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+			bool locaOK = Parse_LOCA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
+			ATOMIC_PROGRESS_ADD(0.1f);	// 0.4
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+			bool hheaOK = Parse_HHEA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
+			ATOMIC_PROGRESS_ADD(0.1f);	// 0.5
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
 			bool glyfOK = false;
 			//bool postOK = false;
 			bool hmtxOK = false;
@@ -679,20 +702,33 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			{
 				// on fait post avant glyf comme ca 
 				// on pourra mettre le nom directement dans le glyph
-				/*postOK = */Parse_POST_Table(vMem, vFlags);
+				/*postOK = */Parse_POST_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
+				ATOMIC_PROGRESS_ADD(0.1f);	// 0.6
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				if (headOK && locaOK) // dependencies
-					glyfOK = Parse_GLYF_Table(vMem, vFlags);
+					glyfOK = Parse_GLYF_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
+				ATOMIC_PROGRESS_ADD(0.1f);	// 0.7
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				// on fait ca apres glyph comme ca on pourra remplir
 				// les metrics dans le glyph
 				if (hheaOK) // dependencies
-					hmtxOK = Parse_HMTX_Table(vMem, vFlags);
+				{
+					hmtxOK = Parse_HMTX_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				}
+				ATOMIC_PROGRESS_ADD(0.1f);	// 0.8
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
 			}
 
-			cpalOK = Parse_CPAL_Table(vMem, vFlags);
+			cpalOK = Parse_CPAL_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);			
+			ATOMIC_PROGRESS_ADD(0.1f);	// 0.9
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 			if (cpalOK) // dependencies
-				colrOK = Parse_COLR_Table(vMem, vFlags);
+				colrOK = Parse_COLR_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		 
+			ATOMIC_PROGRESS_ADD(0.1f);	// 1.0
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 			// tres permissif, le minimum est d'avoir des glyphs
 			// le reste au besoin on le fera nous meme
@@ -712,7 +748,7 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 	return res;
 }
 
-bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	// header
 	std::string scalerType = vMem->ReadString(4); //-V112
@@ -742,12 +778,15 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 		std::string tagString = std::string((char*)tbl.tag); //-V112
 		m_Tables[tagString] = tbl;
 		LogInfos(vFlags, "Table %s found\n", tagString.c_str()); //-V111
+	
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
 	}
 
 	return (!m_Tables.empty());
 }
 
-bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (!vMem) return false;
 
@@ -763,6 +802,9 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		size_t sizeOfEncodingRecord = 8U;
 		for (size_t encodingRecordID = 0; encodingRecordID < (size_t)numEncodingRecords; encodingRecordID++)
 		{
+			ATOMIC_OBJECTS_COUNT_INC;
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 			vMem->SetPos(tbl.offset + (size_t)4U + sizeOfEncodingRecord * encodingRecordID); //-V112
 
 			/*uint16_t platformID =*/ (uint16_t)vMem->ReadUShort();
@@ -779,6 +821,9 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				for (GlyphIndex glyphIndex = 0; glyphIndex < 256; glyphIndex++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					uint8_t codePoint = vMem->ReadByte();
 					m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
 					m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
@@ -800,25 +845,40 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				int segCount = segCountX2 / 2;
 				for (int i = 0; i < segCount; i++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					endCode.push_back((uint16_t)vMem->ReadUShort());
 				}
 				/*uint16_t reservedPad =*/ (uint16_t)vMem->ReadUShort();
 				for (int i = 0; i < segCount; i++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					startCode.push_back((uint16_t)vMem->ReadUShort());
 				}
 				for (int i = 0; i < segCount; i++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					idDelta.push_back((uint16_t)vMem->ReadShort());
 				}
 				size_t idRangeOffsetAddress = vMem->GetPos();
 				for (int i = 0; i < segCount; i++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					idRangeOffset.push_back((uint16_t)vMem->ReadUShort());
 				}
 
-				for (uint16_t codePoint = 0x20; codePoint < 0xFFFF; codePoint++) //-V112
+				for (uint16_t codePoint = 0; codePoint < 0xFFFF; codePoint++) //-V112
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					// d'abord on va localiser le segment
 					bool found = false;
 					size_t segment = 0;
@@ -893,10 +953,13 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("head") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["head"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -929,10 +992,13 @@ bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("maxp") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["maxp"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -963,10 +1029,13 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("loca") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["loca"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -977,6 +1046,9 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			for (uint16_t i = 0; i < m_TTFInfos.m_GlyphCount; i++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				size_t offset = (size_t)((uint32_t)vMem->ReadUShort()) * 2;
 				m_GlyphsOffsets[i] = offset;
 			}
@@ -985,6 +1057,9 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			for (uint16_t i = 0; i < m_TTFInfos.m_GlyphCount; i++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				size_t offset = (size_t)((uint32_t)vMem->ReadULong());
 				m_GlyphsOffsets[i] = offset;
 			}
@@ -1000,10 +1075,13 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("glyf") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["glyf"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -1011,6 +1089,9 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		size_t length = 0;
 		for (size_t glyphID = 0; glyphID < (size_t)m_TTFInfos.m_GlyphCount; glyphID++)
 		{
+			ATOMIC_OBJECTS_COUNT_INC;
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 			size_t glyphOffset = tbl.offset + m_GlyphsOffsets[glyphID];
 			vMem->SetPos(glyphOffset);
 
@@ -1041,7 +1122,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 				if (!(vFlags & TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING))
 				{
-					auto g = Parse_Simple_Glyf(vMem, numberOfContours, vFlags);
+					auto g = Parse_Simple_Glyf(vMem, numberOfContours, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 					glyph.m_Contours = g.m_Contours;
 					glyph.m_AdvanceX = g.m_AdvanceX;
 					glyph.m_LeftSideBearing = g.m_LeftSideBearing;
@@ -1071,7 +1152,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags)
+TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	Glyph glyph;
 
@@ -1091,13 +1172,22 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 		{
 			size_t countContours = (size_t)vCountContour;
 
-			endPtsOfContours.resize(countContours);
+			endPtsOfContours.resize(countContours + 1);
+			endPtsOfContours[0] = 0U;
 			for (size_t contourID = 0; contourID < countContours; contourID++)
-				endPtsOfContours[contourID] = (uint16_t)vMem->ReadShort();
+			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
+				endPtsOfContours[contourID + 1] = (uint16_t)vMem->ReadShort();
+			}
 
 			instructionLength = (size_t)vMem->ReadUShort();
 			if (instructionLength)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
 				instructions.resize(instructionLength);
 				for (size_t instructionID = 0; instructionID < instructionLength; instructionID++)
 					instructions[instructionID] = (uint8_t)vMem->ReadByte();
@@ -1110,9 +1200,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			const int32_t SimpleFlagOnXRepeatSign = 1 << 4;
 			const int32_t SimpleFlagOnYRepeatSign = 1 << 5;
 
-			if (!endPtsOfContours.empty())
+			if (endPtsOfContours.size() > 1)
 			{
-				size_t countPoints = (size_t)endPtsOfContours[countContours - 1U] + 1; // always sup to 0 with the +1
+				size_t countPoints = (size_t)endPtsOfContours[countContours] + 1; // always sup to 0 with the +1
 
 				xCoordinates.resize(countPoints);
 				yCoordinates.resize(countPoints);
@@ -1123,6 +1213,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 				int32_t flag = 0;
 				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
 					if (flag_repeat == 0)
 					{
 						flag = vMem->ReadByte();
@@ -1143,6 +1236,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
 					flag = flags[pointID];
 
 					if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
@@ -1163,6 +1259,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
 					flag = flags[pointID];
 
 					if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
@@ -1184,12 +1283,15 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 			// convert in final glyph
 
-			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
+			//endPtsOfContours.insert(endPtsOfContours.begin(), 0);
 			//LogInfos(vFlags, "Contours : %u\n", (uint32_t)countContours);
 
 			glyph.m_Contours.resize(countContours);
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
 				auto contour = &glyph.m_Contours[contourID];
 
 				const size_t pmax = endPtsOfContours[contourID + 1] - endPtsOfContours[contourID];
@@ -1200,6 +1302,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				for (size_t p = 0; p < pmax; p++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
 					contour->m_Points[p].x = (int32_t)xCoordinates[endPtsOfContours[contourID] + p];
 					contour->m_Points[p].y = (int32_t)yCoordinates[endPtsOfContours[contourID] + p];
 					contour->m_OnCurve[p] = onCurves[endPtsOfContours[contourID] + p];
@@ -1242,10 +1347,13 @@ static const char* standardMacNames[STANDARD_MAC_NAMES_COUNT] =
 "onequarter", "threequarters", "franc", "Gbreve", "gbreve", "Idotaccent", "Scedilla", "scedilla", "Cacute", "cacute",
 "Ccaron", "ccaron", "dcroat" };
 
-bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("post") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["post"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -1266,6 +1374,9 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			for (size_t idx = 0; idx < STANDARD_MAC_NAMES_COUNT; idx++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				m_GlyphNames.push_back(standardMacNames[idx]);
 			}
 		}
@@ -1274,9 +1385,15 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			uint16_t numberOfGlyphs = (uint16_t)vMem->ReadUShort();
 			if (numberOfGlyphs == m_TTFInfos.m_GlyphCount)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				std::vector<uint16_t> glyphNameIndex;
 				for (int i = 0; i < numberOfGlyphs; i++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					glyphNameIndex.push_back((uint16_t)vMem->ReadUShort());
 				}
 
@@ -1285,6 +1402,9 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				std::vector<std::string> pendingNames;
 				while (vMem->GetPos() < endPos)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					uint8_t len = vMem->ReadByte();
 					std::string str = vMem->ReadString(len);
 					pendingNames.push_back(str);
@@ -1292,6 +1412,9 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 				for (int i = 0; i < numberOfGlyphs; i++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					uint16_t mapIdx = glyphNameIndex[i];
 					if (mapIdx >= 258)
 					{
@@ -1333,10 +1456,12 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("CPAL") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+
 		auto tbl = m_Tables["CPAL"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -1354,14 +1479,23 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			colorRecordIndices.resize(numPalettes);
 			for (int paletteIndex = 0; paletteIndex < numPalettes; paletteIndex++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				colorRecordIndices[paletteIndex] = (uint16_t)vMem->ReadUShort();
 			}
 
 			m_Palettes.resize(numPalettes);
 			for (size_t paletteIndex = 0; paletteIndex < numPalettes; paletteIndex++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				for (size_t paletteEntryIndex = 0; paletteEntryIndex < numPaletteEntries; paletteEntryIndex++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					size_t colorRecordIndex = (size_t)colorRecordIndices[paletteIndex] + paletteEntryIndex;
 
 					vMem->SetPos(tbl.offset + (size_t)colorRecordsArrayOffset + colorRecordIndex * 4U); //-V112
@@ -1391,10 +1525,13 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("COLR") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["COLR"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -1407,6 +1544,9 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 		for (size_t glyphRecordID = 0; glyphRecordID < (size_t)numBaseGlyphRecords; glyphRecordID++)
 		{
+			ATOMIC_OBJECTS_COUNT_INC;
+			ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 			vMem->SetPos(tbl.offset + (size_t)baseGlyphRecordsOffset + glyphRecordID * 6U);
 			uint16_t baseGlyphID = (uint16_t)vMem->ReadUShort();
 			uint16_t firstLayerIndex = (uint16_t)vMem->ReadUShort();
@@ -1416,6 +1556,9 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			{
 				for (size_t layerID = 0; layerID < (size_t)numLayers; layerID++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					vMem->SetPos(tbl.offset + (size_t)layerRecordsOffset + ((size_t)firstLayerIndex + layerID) * 4U); //-V112
 					LayerGlyph lg;
 					lg.glyphID = (uint16_t)vMem->ReadUShort();
@@ -1453,10 +1596,13 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("hhea") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["hhea"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -1491,10 +1637,13 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	if (m_Tables.find("hmtx") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 		auto tbl = m_Tables["hmtx"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -1511,6 +1660,9 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			hMetrics.resize(m_MumOfLongHorMetrics);
 			for (GlyphIndex glyphID = 0; glyphID < m_MumOfLongHorMetrics; glyphID++)
 			{
+				ATOMIC_OBJECTS_COUNT_INC;
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 				longHorMetric lhm;
 				lhm.advanceWidth = (uint16_t)vMem->ReadUShort();
 				lhm.leftSideBearing = (int16_t)vMem->ReadShort();
@@ -1531,6 +1683,9 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				leftSideBearings.resize(leftSideBearingCount);
 				for (GlyphIndex idx = 0; idx < leftSideBearingCount; idx++)
 				{
+					ATOMIC_OBJECTS_COUNT_INC;
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
 					leftSideBearings[idx] = vMem->ReadFWord();
 					GlyphIndex glyphID = m_MumOfLongHorMetrics + idx;
 					if (glyphID < m_Glyphs.size())
