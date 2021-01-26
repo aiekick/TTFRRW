@@ -49,6 +49,7 @@ namespace TTFRRW
 		double result_Full();
 		size_t result_Count();
 		void print(ttfrrwProcessingFlags vFlags, const char* parent, const char* label);
+		void erasePrint(ttfrrwProcessingFlags vFlags, const char* parent, const char* label); // clear console then print
 	};
 
 	///////////////////////////////////////////////////////////////////////
@@ -493,10 +494,28 @@ namespace TTFRRW
 		int16_t m_XMaxExtent = 0;
 	};
 
+	class TTFProfiler
+	{
+	public:
+		cProfiler simpleGlyfProfiler;
+
+	public:
+		void Reset()
+		{
+			simpleGlyfProfiler.reset();
+		}
+
+		void Print(ttfrrwProcessingFlags vFlags)
+		{
+			simpleGlyfProfiler.print(vFlags, "Parse_Simple_Glyf", "");
+		}
+	};
+
 	class TTFRRW
 	{
 	private:
 		TTFInfos m_TTFInfos;
+		TTFProfiler m_TTFProfiler;
 		bool m_IsValid_For_Rasterize = false;
 		bool m_IsValid_For_GlyphTreatment = false;
 

@@ -99,6 +99,24 @@ void TTFRRW::cProfiler::print(ttfrrwProcessingFlags vFlags, const char* parent, 
 	}
 }
 
+// clear console then print
+void TTFRRW::cProfiler::erasePrint(ttfrrwProcessingFlags vFlags, const char* parent, const char* label)
+{
+	if (vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_PROFILER)
+	{
+		if (count == 1)
+		{
+			printf("%s%s Time (%.9fs)\n", parent, label, value);
+		}
+		else
+		{
+			// https://stackoverflow.com/questions/1508490/erase-the-current-printed-console-line
+			double Average = result_Average();
+			printf("%s%s : Average (%.9fs) Sum (%.9fs) Count (%zu)\r", parent, label, Average, value, count);
+		}
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -376,6 +394,8 @@ TTFRRW::TTFRRW::~TTFRRW()
 void TTFRRW::TTFRRW::Clear()
 {
 	m_TTFInfos = TTFInfos();
+	m_TTFProfiler.Reset();
+
 	m_IsValid_For_Rasterize = false;
 	m_IsValid_For_GlyphTreatment = false;
 
@@ -399,6 +419,8 @@ void TTFRRW::TTFRRW::Clear()
 	m_GlyphsOffsets.clear();
 	m_Palettes.clear();
 	m_MumOfLongHorMetrics = 0;
+
+	
 }
 
 bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags, const char* vDebugInfos)
@@ -635,6 +657,11 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 	{
 		Clear();
 
+		if (vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_PROFILER)
+		{
+			printf("Profiler Started\n");
+		}
+
 		if (Parse_Table_Header(vMem, vFlags))
 		{
 			/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags);
@@ -678,6 +705,8 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 		{
 			LogError(vFlags, "ERR : Corrupted Header Table\n");
 		}
+
+		m_TTFProfiler.Print(vFlags);
 	}
 
 	return res;
@@ -1048,7 +1077,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 	if (vMem)
 	{
-		std::deque<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
+		m_TTFProfiler.simpleGlyfProfiler.start();
+		
+		std::vector<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
 		size_t instructionLength;
 		std::vector<uint8_t> instructions;
 		std::vector<uint8_t> flags;
@@ -1060,13 +1091,18 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 		{
 			size_t countContours = (size_t)vCountContour;
 
+			endPtsOfContours.resize(countContours);
 			for (size_t contourID = 0; contourID < countContours; contourID++)
-				endPtsOfContours.push_back((uint16_t)vMem->ReadShort());
+				endPtsOfContours[contourID] = (uint16_t)vMem->ReadShort();
 
 			instructionLength = (size_t)vMem->ReadUShort();
-			for (size_t instructionID = 0; instructionID < instructionLength; instructionID++)
-				instructions.push_back((uint8_t)vMem->ReadByte());
-
+			if (instructionLength)
+			{
+				instructions.resize(instructionLength);
+				for (size_t instructionID = 0; instructionID < instructionLength; instructionID++)
+					instructions[instructionID] = (uint8_t)vMem->ReadByte();
+			}
+			
 			const int32_t SimpleFlagOnCurve = 1;
 			const int32_t SimpleFlagOnXShort = 1 << 1;
 			const int32_t SimpleFlagOnYShort = 1 << 2;
@@ -1081,6 +1117,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 				xCoordinates.resize(countPoints);
 				yCoordinates.resize(countPoints);
 				onCurves.resize(countPoints);
+				flags.resize(countPoints);
 
 				uint32_t flag_repeat = 0;
 				int32_t flag = 0;
@@ -1100,8 +1137,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 					}
 
 					uint8_t u8Flag = (uint8_t)flag;
-					flags.push_back(u8Flag);
-
+					flags[pointID] = u8Flag;
 					onCurves[pointID] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
 				}
 
@@ -1149,31 +1185,31 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			// convert in final glyph
 
 			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
-			LogInfos(vFlags, "Contours : %u\n", (uint32_t)countContours);
+			//LogInfos(vFlags, "Contours : %u\n", (uint32_t)countContours);
 
+			glyph.m_Contours.resize(countContours);
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
-				Contour contour;
+				auto contour = &glyph.m_Contours[contourID];
 
-				size_t pmax = endPtsOfContours[contourID + 1] - endPtsOfContours[contourID];
-				LogInfos(vFlags, "Contour %u, Count Points : %u\n", (uint32_t)contourID, (uint32_t)pmax);
+				const size_t pmax = endPtsOfContours[contourID + 1] - endPtsOfContours[contourID];
+				//LogInfos(vFlags, "Contour %u, Count Points : %u\n", (uint32_t)contourID, (uint32_t)pmax);
+
+				contour->m_Points.resize(pmax);
+				contour->m_OnCurve.resize(pmax);
 
 				for (size_t p = 0; p < pmax; p++)
 				{
-					ivec2 pt;
-					pt.x = (int32_t)xCoordinates[endPtsOfContours[contourID] + p];
-					pt.y = (int32_t)yCoordinates[endPtsOfContours[contourID] + p];
-					contour.m_Points.push_back(pt);
-					bool oc = onCurves[endPtsOfContours[contourID] + p];
-					contour.m_OnCurve.push_back(oc);
+					contour->m_Points[p].x = (int32_t)xCoordinates[endPtsOfContours[contourID] + p];
+					contour->m_Points[p].y = (int32_t)yCoordinates[endPtsOfContours[contourID] + p];
+					contour->m_OnCurve[p] = onCurves[endPtsOfContours[contourID] + p];
 
-					LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
-
+				//	LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
 				}
-
-				glyph.m_Contours.push_back(contour);
 			}
 		}
+
+		m_TTFProfiler.simpleGlyfProfiler.end();
 	}
 
 	return glyph;
