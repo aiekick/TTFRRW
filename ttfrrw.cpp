@@ -677,38 +677,38 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 
 		if (Parse_Table_Header(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF))
 		{
-			/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
-			ATOMIC_PROGRESS_ADD(0.1f);	// 0.1
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-			bool headOK = Parse_HEAD_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
-			ATOMIC_PROGRESS_ADD(0.1f);	// 0.2
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-			bool maxpOK = Parse_MAXP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
-			ATOMIC_PROGRESS_ADD(0.1f);	// 0.3
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-			bool locaOK = Parse_LOCA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
-			ATOMIC_PROGRESS_ADD(0.1f);	// 0.4
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-			bool hheaOK = Parse_HHEA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		
-			ATOMIC_PROGRESS_ADD(0.1f);	// 0.5
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-			bool glyfOK = false;
-			//bool postOK = false;
-			bool hmtxOK = false;
-			bool colrOK = false;
-			bool cpalOK = false;
-
+			bool maxpOK = Parse_MAXP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 			if (maxpOK) // dependencies
 			{
+				/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				//ATOMIC_PROGRESS_ADD(0.01f);	// 0.1
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+				bool headOK = Parse_HEAD_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				//ATOMIC_PROGRESS_ADD(0.02f);	// 0.2
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+				//ATOMIC_PROGRESS_ADD(0.03f);	// 0.3
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+				bool locaOK = Parse_LOCA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				//ATOMIC_PROGRESS_ADD(0.04f);	// 0.4
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+				bool hheaOK = Parse_HHEA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.5
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+				bool glyfOK = false;
+				//bool postOK = false;
+				bool hmtxOK = false;
+				bool colrOK = false;
+				bool cpalOK = false;
+
 				// on fait post avant glyf comme ca 
 				// on pourra mettre le nom directement dans le glyph
 				/*postOK = */Parse_POST_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
-				ATOMIC_PROGRESS_ADD(0.1f);	// 0.6
+				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.6
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				if (headOK && locaOK) // dependencies
 					glyfOK = Parse_GLYF_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
-				ATOMIC_PROGRESS_ADD(0.1f);	// 0.7
+				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.7
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				// on fait ca apres glyph comme ca on pourra remplir
@@ -717,25 +717,25 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 				{
 					hmtxOK = Parse_HMTX_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 				}
-				ATOMIC_PROGRESS_ADD(0.1f);	// 0.8
+				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.8
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+				cpalOK = Parse_CPAL_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.9
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+				if (cpalOK) // dependencies
+					colrOK = Parse_COLR_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+				//ATOMIC_PROGRESS_ADD(0.1f);	// 1.0
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+				// tres permissif, le minimum est d'avoir des glyphs
+				// le reste au besoin on le fera nous meme
+				res = glyfOK;
+
+				m_IsValid_For_GlyphTreatment = res;
+				m_IsValid_For_Rasterize = (glyfOK && hmtxOK);
 			}
-
-			cpalOK = Parse_CPAL_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);			
-			ATOMIC_PROGRESS_ADD(0.1f);	// 0.9
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-
-			if (cpalOK) // dependencies
-				colrOK = Parse_COLR_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);		 
-			ATOMIC_PROGRESS_ADD(0.1f);	// 1.0
-			ATOMIC_RETURN_IF_STOP_WORKING(false);
-
-			// tres permissif, le minimum est d'avoir des glyphs
-			// le reste au besoin on le fera nous meme
-			res = glyfOK;
-
-			m_IsValid_For_GlyphTreatment = res;
-			m_IsValid_For_Rasterize = (glyfOK && hmtxOK);
 		}
 		else
 		{
@@ -792,6 +792,8 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 	if (m_Tables.find("cmap") != m_Tables.end())
 	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		
 		const auto tbl = m_Tables["cmap"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -802,7 +804,6 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		size_t sizeOfEncodingRecord = 8U;
 		for (size_t encodingRecordID = 0; encodingRecordID < (size_t)numEncodingRecords; encodingRecordID++)
 		{
-			ATOMIC_OBJECTS_COUNT_INC;
 			ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 			vMem->SetPos(tbl.offset + (size_t)4U + sizeOfEncodingRecord * encodingRecordID); //-V112
@@ -821,7 +822,6 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				for (GlyphIndex glyphIndex = 0; glyphIndex < 256; glyphIndex++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					uint8_t codePoint = vMem->ReadByte();
@@ -845,7 +845,6 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				int segCount = segCountX2 / 2;
 				for (int i = 0; i < segCount; i++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					endCode.push_back((uint16_t)vMem->ReadUShort());
@@ -853,14 +852,12 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				/*uint16_t reservedPad =*/ (uint16_t)vMem->ReadUShort();
 				for (int i = 0; i < segCount; i++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					startCode.push_back((uint16_t)vMem->ReadUShort());
 				}
 				for (int i = 0; i < segCount; i++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					idDelta.push_back((uint16_t)vMem->ReadShort());
@@ -868,7 +865,6 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				size_t idRangeOffsetAddress = vMem->GetPos();
 				for (int i = 0; i < segCount; i++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					idRangeOffset.push_back((uint16_t)vMem->ReadUShort());
@@ -876,7 +872,6 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 				for (uint16_t codePoint = 0; codePoint < 0xFFFF; codePoint++) //-V112
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					// d'abord on va localiser le segment
@@ -1046,7 +1041,6 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			for (uint16_t i = 0; i < m_TTFInfos.m_GlyphCount; i++)
 			{
-				ATOMIC_OBJECTS_COUNT_INC;
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				size_t offset = (size_t)((uint32_t)vMem->ReadUShort()) * 2;
@@ -1057,7 +1051,6 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			for (uint16_t i = 0; i < m_TTFInfos.m_GlyphCount; i++)
 			{
-				ATOMIC_OBJECTS_COUNT_INC;
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				size_t offset = (size_t)((uint32_t)vMem->ReadULong());
@@ -1089,6 +1082,9 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		size_t length = 0;
 		for (size_t glyphID = 0; glyphID < (size_t)m_TTFInfos.m_GlyphCount; glyphID++)
 		{
+			if (vProgress)
+				vProgress->store((double)glyphID / (double)m_TTFInfos.m_GlyphCount);
+
 			ATOMIC_OBJECTS_COUNT_INC;
 			ATOMIC_RETURN_IF_STOP_WORKING(false);
 
@@ -1176,7 +1172,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			endPtsOfContours[0] = 0U;
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
-				ATOMIC_OBJECTS_COUNT_INC;
 				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 				endPtsOfContours[contourID + 1] = (uint16_t)vMem->ReadShort();
@@ -1185,7 +1180,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			instructionLength = (size_t)vMem->ReadUShort();
 			if (instructionLength)
 			{
-				ATOMIC_OBJECTS_COUNT_INC;
 				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 				instructions.resize(instructionLength);
@@ -1213,7 +1207,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 				int32_t flag = 0;
 				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 					if (flag_repeat == 0)
@@ -1236,7 +1229,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 					flag = flags[pointID];
@@ -1259,7 +1251,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 					flag = flags[pointID];
@@ -1289,7 +1280,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			glyph.m_Contours.resize(countContours);
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
-				ATOMIC_OBJECTS_COUNT_INC;
 				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 				auto contour = &glyph.m_Contours[contourID];
@@ -1302,7 +1292,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				for (size_t p = 0; p < pmax; p++)
 				{
-					ATOMIC_OBJECTS_COUNT_INC;
 					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 					contour->m_Points[p].x = (int32_t)xCoordinates[endPtsOfContours[contourID] + p];
@@ -1351,7 +1340,6 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 {
 	if (m_Tables.find("post") != m_Tables.end())
 	{
-		ATOMIC_OBJECTS_COUNT_INC;
 		ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 		auto tbl = m_Tables["post"];
@@ -1529,7 +1517,6 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 {
 	if (m_Tables.find("COLR") != m_Tables.end())
 	{
-		ATOMIC_OBJECTS_COUNT_INC;
 		ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 		auto tbl = m_Tables["COLR"];
