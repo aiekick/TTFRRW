@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <deque>
 #include <string>
 #include <map>
 #include <set>
@@ -201,8 +202,8 @@ namespace TTFRRW
 		/// Does this aabb contain the provided AABB.
 		bool Contains(const AABB<T>& aabb) const { bool result = true; result = result && lowerBound.x <= aabb.lowerBound.x; result = result && lowerBound.y <= aabb.lowerBound.y; result = result && aabb.upperBound.x <= upperBound.x; result = result && aabb.upperBound.y <= upperBound.y; return result; }
 		/// Does this aabb contain the provided vec2<T>.
-		bool ContainsPoint(const vec2<T>& pt) const { bool result = true; result = result && lowerBound.x <= pt.x; result = result && lowerBound.y <= pt.y; result = result && pt.x <= upperBound.x; result = result && pt.y <= upperBound.y; return result; }
-		bool Intersects(const AABB<T>& other) { bool result = true; result = result || lowerBound.x <= other.lowerBound.x; result = result || lowerBound.y <= other.lowerBound.y; result = result || other.upperBound.x <= upperBound.x; result = result || other.upperBound.y <= upperBound.y; return result; }
+		bool ContainsPoint(const vec2<T>& pt) { return lowerBound.x <= pt.x && lowerBound.y <= pt.y && pt.x <= upperBound.x && pt.y <= upperBound.y; }
+		bool Intersects(const AABB<T>& other) { return lowerBound.x <= other.lowerBound.x || lowerBound.y <= other.lowerBound.y || other.upperBound.x <= upperBound.x || other.upperBound.y <= upperBound.y; }
 		vec2<T> Size() { return vec2<T>(upperBound - lowerBound); }
 	};
 	typedef AABB<int> iAABB;
@@ -229,7 +230,7 @@ namespace TTFRRW
 		vec2<T> zw() { return vec2<T>(z, w); }
 		vec2<T> pos() { return xy(); }
 		vec2<T> size() { return zw(); }
-		T operator [] (const int& i)
+		T operator [] (const size_t& i)
 		{
 			switch (i)
 			{
@@ -241,7 +242,7 @@ namespace TTFRRW
 			assert(false);
 			return 0;
 		}
-		void Set(const int& i, T v)
+		void Set(const size_t& i, T v)
 		{
 			switch (i)
 			{
@@ -327,13 +328,26 @@ namespace TTFRRW
 			int16_t value = 0;
 			F2DOT14() { value = 0; }
 			F2DOT14(int16_t v) { value = v; }
-			F2DOT14 operator = (int16_t v) { value = v; }
+			void operator = (int16_t v) { value = v; }
 			void SetFloat(float vValue) { value = (int16_t)roundf(vValue * 16384.f); }
 			float GetFloat() { return (float)(value >> 14) + (float)(value & 0x3FFF) / 16384.0f; }
+		};
+		struct bitfield24 
+		{
+			uint32_t value : 24;
+			bitfield24()
+			{
+				value = 0;
+			}
+			bitfield24(uint32_t vValue)
+			{
+				value = vValue;
+			}
 		};
 		typedef uint16_t UFWord;
 		typedef int16_t FWord;
 		typedef int64_t longDateTime;
+		typedef bitfield24 uint24_t;
 
 	public:
 		MemoryStream();
@@ -422,8 +436,11 @@ namespace TTFRRW
 		{
 			for (auto& c : m_Contours)
 			{
-				return c.IsValid(); // au moins un a dessiner on stop la
+				bool v = c.IsValid();
+				if (v) // au moins un a dessiner on stop la
+					return v;
 			}
+			return false;
 		}
 	};
 
@@ -465,6 +482,7 @@ namespace TTFRRW
 	class TTFInfos
 	{
 	public:
+		uint32_t m_GlyphCount = 0;
 		iAABB m_GlobalBBox;
 		int16_t m_Ascent = 0;
 		int16_t m_Descent = 0;
@@ -530,15 +548,14 @@ namespace TTFRRW
 		{
 			uint8_t tag[5] = {};
 			uint32_t checkSum = 0;
-			uint32_t offset = 0;
-			uint32_t length = 0;
+			size_t offset = 0;
+			size_t length = 0;
 		};
 
 	private: // read table
 		std::unordered_map<std::string, TableStruct> m_Tables;
 		uint16_t m_IndexToLocFormat = 0; // head table : loca format
-		uint16_t m_NumGlyphs = 0; // maxp table : count glyphs
-		std::vector<uint32_t> m_GlyphsOffsets; // loca table : glyphs address
+		std::vector<size_t> m_GlyphsOffsets; // loca table : glyphs address
 		std::vector<std::vector<fvec4>> m_Palettes; // palette > colors > color
 		int16_t m_MumOfLongHorMetrics = 0; // fromm hhea for hmtx
 

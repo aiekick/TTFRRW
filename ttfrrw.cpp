@@ -1,3 +1,6 @@
+// This is an independent project of an individual developer. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include "TTFRRW.h"
 
 #include <fstream>
@@ -191,8 +194,8 @@ void TTFRRW::MemoryStream::WriteF2DOT14(MemoryStream::F2DOT14 f)
 
 void TTFRRW::MemoryStream::WriteDateTime(longDateTime date)
 {
-	WriteULong((date >> 32) & 0xffffffff);
-	WriteULong(date & 0xffffffff);
+	WriteULong((date >> 32) & 0xffffffff); //-V112
+	WriteULong(date & 0xffffffff); //-V112
 }
 
 uint8_t* TTFRRW::MemoryStream::Get()
@@ -264,13 +267,13 @@ uint32_t TTFRRW::MemoryStream::ReadUInt24(size_t vOffset)
 
 uint64_t TTFRRW::MemoryStream::ReadULong(size_t vOffset)
 {
-	return 0xffffffffL & ReadLong(vOffset);
+	return 0xffffffffL & ReadLong(vOffset); //-V112
 }
 
 uint32_t TTFRRW::MemoryStream::ReadULongAsInt(size_t vOffset)
 {
 	int64_t ulong = ReadULong(vOffset);
-	return ((int32_t)ulong) & ~0x80000000;
+	return ((int32_t)ulong) & ~0x80000000; //-V112
 }
 
 int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
@@ -300,7 +303,7 @@ TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(size_t vOffset)
 
 TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(size_t vOffset)
 {
-	return (int64_t)ReadULong(vOffset) << 32 | ReadULong(vOffset);
+	return (int64_t)ReadULong(vOffset) << 32 | ReadULong(vOffset); //-V112
 }
 
 std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
@@ -393,7 +396,6 @@ void TTFRRW::TTFRRW::Clear()
 
 	m_Tables.clear();
 	m_IndexToLocFormat = 0;
-	m_NumGlyphs = 0;
 	m_GlyphsOffsets.clear();
 	m_Palettes.clear();
 	m_MumOfLongHorMetrics = 0;
@@ -470,7 +472,7 @@ bool TTFRRW::TTFRRW::WriteFontFile(const std::string& vFontFilePathName)
 {
 	(void)vFontFilePathName;
 
-	return "";
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -552,16 +554,21 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 #endif
 		if (intput_file != reinterpret_cast<FILE*>(NULL))
 		{
-			long fileSize = 0;
+			size_t fileSize = 0;
+
 			// obtain file size:
-			fseek(intput_file, 0, SEEK_END);
-			fileSize = ftell(intput_file);
+			fseek(intput_file, 0, SEEK_END); //-V303
+			fileSize = (size_t)ftell(intput_file); //-V303
 			rewind(intput_file);
 
-			// copy the file into the buffer and close
-			bytes.resize(fileSize);
-			fread(bytes.data(), 1, fileSize, intput_file);
-			vInMem->Set(bytes.data(), bytes.size());
+			if (fileSize)
+			{
+				// copy the file into the buffer and close
+				bytes.resize(fileSize);
+				fread(bytes.data(), 1, fileSize, intput_file);
+				vInMem->Set(bytes.data(), bytes.size());
+			}
+			
 			fclose(intput_file);
 
 			res = true;
@@ -580,7 +587,7 @@ bool TTFRRW::TTFRRW::WriteMemoryToFile(
 
 	if (vOutMem)
 	{
-		if (vOutMem->Get() && vOutMem->Size())
+		if (vOutMem->Size())
 		{
 			FILE* output_file = nullptr;
 #if defined(MSVC)
@@ -635,25 +642,28 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			bool maxpOK = Parse_MAXP_Table(vMem, vFlags);
 			bool locaOK = Parse_LOCA_Table(vMem, vFlags);
 			bool hheaOK = Parse_HHEA_Table(vMem, vFlags);
-
-			// on fait post avant glyf comme ca 
-			// on pourra mettre le nom directement dans le glyph
-			bool postOK = false;
-			if (maxpOK) // dependencies
-				postOK = Parse_POST_Table(vMem, vFlags);
-
 			bool glyfOK = false;
-			if (headOK && maxpOK && locaOK) // dependencies
-				glyfOK = Parse_GLYF_Table(vMem, vFlags);
-
-			// on fait ca apres glyph comme ca on pourra remplir
-			// les metrics dans le glyph
+			//bool postOK = false;
 			bool hmtxOK = false;
-			if (hheaOK && maxpOK) // dependencies
-				hmtxOK = Parse_HMTX_Table(vMem, vFlags);
-
-			bool cpalOK = Parse_CPAL_Table(vMem, vFlags);
 			bool colrOK = false;
+			bool cpalOK = false;
+
+			if (maxpOK) // dependencies
+			{
+				// on fait post avant glyf comme ca 
+				// on pourra mettre le nom directement dans le glyph
+				/*postOK = */Parse_POST_Table(vMem, vFlags);
+
+				if (headOK && locaOK) // dependencies
+					glyfOK = Parse_GLYF_Table(vMem, vFlags);
+
+				// on fait ca apres glyph comme ca on pourra remplir
+				// les metrics dans le glyph
+				if (hheaOK) // dependencies
+					hmtxOK = Parse_HMTX_Table(vMem, vFlags);
+			}
+
+			cpalOK = Parse_CPAL_Table(vMem, vFlags);
 			if (cpalOK) // dependencies
 				colrOK = Parse_COLR_Table(vMem, vFlags);
 
@@ -676,7 +686,7 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
 	// header
-	std::string scalerType = vMem->ReadString(4);
+	std::string scalerType = vMem->ReadString(4); //-V112
 	if (scalerType[0] == 1)  scalerType = "TrueType 1"; // TrueType 1
 	if (scalerType[1] == 1)  scalerType = "OpenType 1"; // TrueType 1
 	uint16_t numTables = (uint16_t)vMem->ReadUShort();
@@ -697,13 +707,12 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 		tbl.tag[4] = '\0';
 
 		tbl.checkSum = (uint32_t)vMem->ReadULong();
-		tbl.offset = (uint32_t)vMem->ReadULong();
-		tbl.length = (uint32_t)vMem->ReadULong();
+		tbl.offset = (size_t)vMem->ReadULong();
+		tbl.length = (size_t)vMem->ReadULong();
 
-		std::string tagString = std::string((char*)tbl.tag);
+		std::string tagString = std::string((char*)tbl.tag); //-V112
 		m_Tables[tagString] = tbl;
-
-		LogInfos(vFlags, "Table %s found\n", tagString.c_str());
+		LogInfos(vFlags, "Table %s found\n", tagString.c_str()); //-V111
 	}
 
 	return (!m_Tables.empty());
@@ -722,20 +731,21 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		/*uint16_t version =*/ (uint16_t)vMem->ReadUShort();
 		uint16_t numEncodingRecords = (uint16_t)vMem->ReadUShort();
 
-		for (size_t encodingRecord = 0; encodingRecord < (size_t)numEncodingRecords; encodingRecord++)
+		size_t sizeOfEncodingRecord = 8U;
+		for (size_t encodingRecordID = 0; encodingRecordID < (size_t)numEncodingRecords; encodingRecordID++)
 		{
-			vMem->SetPos(tbl.offset + 4U);
+			vMem->SetPos(tbl.offset + (size_t)4U + sizeOfEncodingRecord * encodingRecordID); //-V112
 
 			/*uint16_t platformID =*/ (uint16_t)vMem->ReadUShort();
 			/*uint16_t encodingID =*/ (uint16_t)vMem->ReadUShort();
-			uint32_t offset = (uint16_t)vMem->ReadULong();
+			size_t offset = (size_t)vMem->ReadULong();
 
 			vMem->SetPos(tbl.offset + offset);
 
 			uint16_t format = (uint16_t)vMem->ReadUShort();
 			/*uint16_t length =*/ (uint16_t)vMem->ReadUShort();
 
-			if (format == 0)
+			if (format == 0U)
 			{
 				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				for (GlyphIndex glyphIndex = 0; glyphIndex < 256; glyphIndex++)
@@ -744,8 +754,8 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
 					m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
 				}
-			}
-			else if (format == 4)
+			} //-V112
+			else if (format == 4U) //-V112
 			{
 				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				uint16_t segCountX2 = (uint16_t)vMem->ReadUShort();
@@ -757,8 +767,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				std::vector<uint16_t> startCode;
 				std::vector<int16_t> idDelta;
 				std::vector<uint16_t> idRangeOffset;
-				std::vector<uint16_t> glyphIdArray;
-
+				
 				int segCount = segCountX2 / 2;
 				for (int i = 0; i < segCount; i++)
 				{
@@ -779,13 +788,13 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					idRangeOffset.push_back((uint16_t)vMem->ReadUShort());
 				}
 
-				for (uint16_t codePoint = 0x20; codePoint < 0xFFFF; codePoint++)
+				for (uint16_t codePoint = 0x20; codePoint < 0xFFFF; codePoint++) //-V112
 				{
 					// d'abord on va localiser le segment
 					bool found = false;
-					int32_t segment = 0;
-					int32_t start = 0;
-					int32_t end = segCount;
+					size_t segment = 0;
+					size_t start = 0;
+					size_t end = segCount;
 					while (start != end)
 					{
 						segment = (start + end) / 2;
@@ -804,32 +813,23 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					}
 					if (found)
 					{
-						bool glyphIndexFound = false;
-
-						GlyphIndex foundGlyphIndex = 0;
-
 						start = startCode[segment];
-						if (codePoint < start)
+						if (codePoint >= start)
 						{
-							//notdef;
-						}
-						int32_t id_range_offset = idRangeOffset[segment];
-						if (id_range_offset == 0)
-						{
-							foundGlyphIndex = (codePoint + idDelta[segment]) % 0x10000; // 0x10000 is 65536
-							glyphIndexFound = true;
-						}
-						else
-						{
-							size_t idRangeOffsetLocation = idRangeOffsetAddress + segment * sizeof(uint16_t);
-							size_t newPos = id_range_offset + idRangeOffsetLocation + (codePoint - start) * 2;
-							vMem->SetPos(newPos);
-							foundGlyphIndex = (uint16_t)vMem->ReadUShort();
-							glyphIndexFound = true;
-						}
+							GlyphIndex foundGlyphIndex = 0;
 
-						if (glyphIndexFound)
-						{
+							size_t id_range_offset = (size_t)idRangeOffset[segment];
+							if (id_range_offset == 0)
+							{
+								foundGlyphIndex = (codePoint + idDelta[segment]) % 0x10000; // 0x10000 is 65536
+							}
+							else
+							{
+								size_t idRangeOffsetLocation = idRangeOffsetAddress + segment * sizeof(uint16_t);
+								vMem->SetPos(id_range_offset + idRangeOffsetLocation + ((size_t)codePoint - start) * 2U);
+								foundGlyphIndex = (uint16_t)vMem->ReadUShort();
+							}
+
 							if (foundGlyphIndex < 0xFFFF)
 							{
 								m_CodePoint_To_GlyphIndex[codePoint] = foundGlyphIndex;
@@ -840,6 +840,10 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 							{
 								LogError(vFlags, "ERR : CodePoint %u => Error\n", codePoint);
 							}
+						}
+						else
+						{
+							//notdef;
 						}
 					}
 				}
@@ -905,7 +909,7 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		//uint32_t len = tbl.length;
 
 		/*MemoryStream::Fixed version =*/ vMem->ReadFixed();
-		m_NumGlyphs = (uint16_t)vMem->ReadUShort();
+		m_TTFInfos.m_GlyphCount = (uint16_t)vMem->ReadUShort();
 		/*uint16_t maxPoints = (uint16_t)vMem->ReadUShort();
 		uint16_t maxContours = (uint16_t)vMem->ReadUShort();
 		uint16_t maxComponentPoints = (uint16_t)vMem->ReadUShort();
@@ -938,21 +942,21 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
 
-		m_GlyphsOffsets.resize(m_NumGlyphs);
+		m_GlyphsOffsets.resize((size_t)m_TTFInfos.m_GlyphCount);
 
 		if (m_IndexToLocFormat == 0) // short format
 		{
-			for (uint16_t i = 0; i < m_NumGlyphs; i++)
+			for (uint16_t i = 0; i < m_TTFInfos.m_GlyphCount; i++)
 			{
-				uint32_t offset = ((uint32_t)vMem->ReadUShort()) * 2;
+				size_t offset = (size_t)((uint32_t)vMem->ReadUShort()) * 2;
 				m_GlyphsOffsets[i] = offset;
 			}
 		}
 		else if (m_IndexToLocFormat == 1) // long format
 		{
-			for (uint16_t i = 0; i < m_NumGlyphs; i++)
+			for (uint16_t i = 0; i < m_TTFInfos.m_GlyphCount; i++)
 			{
-				uint32_t offset = ((uint32_t)vMem->ReadULong());
+				size_t offset = (size_t)((uint32_t)vMem->ReadULong());
 				m_GlyphsOffsets[i] = offset;
 			}
 		}
@@ -975,12 +979,11 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
 
-		int length = 0;
-		for (size_t i = 0; i < (size_t)m_NumGlyphs; i++)
+		size_t length = 0;
+		for (size_t glyphID = 0; glyphID < (size_t)m_TTFInfos.m_GlyphCount; glyphID++)
 		{
-			uint32_t offset = m_GlyphsOffsets[i];
-
-			vMem->SetPos(tbl.offset + offset);
+			size_t glyphOffset = tbl.offset + m_GlyphsOffsets[glyphID];
+			vMem->SetPos(glyphOffset);
 
 			int16_t numberOfContours = (int16_t)vMem->ReadShort();
 			MemoryStream::FWord xMin = vMem->ReadFWord();
@@ -996,14 +999,14 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			glyph.m_LocalBBox.upperBound.x = xMax;
 			glyph.m_LocalBBox.upperBound.y = yMax;
 
-			if (i < m_GlyphNames.size())
-				glyph.m_Name = m_GlyphNames[i];
+			if (glyphID < m_GlyphNames.size())
+				glyph.m_Name = m_GlyphNames[glyphID];
 
 			LogInfos(vFlags, "BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
 
 			if (numberOfContours >= 0) // simple glyf
 			{
-				LogInfos(vFlags, "Glyph %u : Simple Glyph\n", (uint32_t)i);
+				LogInfos(vFlags, "Glyph %u : Simple Glyph\n", (uint32_t)glyphID);
 
 				glyph.m_IsSimple = true;
 
@@ -1017,18 +1020,16 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else // composite glyf
 			{
-				LogInfos(vFlags, "Glyph %u : Composite Glyph\n", (uint32_t)i);
+				LogInfos(vFlags, "Glyph %u : Composite Glyph\n", (uint32_t)glyphID);
 
 				glyph.m_IsSimple = false;
 			}
 
 			m_Glyphs.push_back(glyph);
 
-
 			LogInfos(vFlags, "-----------------------\n");
 
-
-			length = offset;
+			length = glyphOffset;
 		}
 
 		return true;
@@ -1047,8 +1048,8 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 	if (vMem)
 	{
-		std::vector<uint16_t> endPtsOfContours;
-		uint16_t instructionLength;
+		std::deque<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
+		size_t instructionLength;
 		std::vector<uint8_t> instructions;
 		std::vector<uint8_t> flags;
 		std::vector<bool> onCurves;
@@ -1057,12 +1058,13 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 		if (vCountContour >= 0) // this is well simple glyph
 		{
-			for (int i = 0; i < vCountContour; i++)
+			size_t countContours = (size_t)vCountContour;
+
+			for (size_t contourID = 0; contourID < countContours; contourID++)
 				endPtsOfContours.push_back((uint16_t)vMem->ReadShort());
 
-			instructionLength = (uint16_t)vMem->ReadUShort();
-
-			for (int i = 0; i < instructionLength; i++)
+			instructionLength = (size_t)vMem->ReadUShort();
+			for (size_t instructionID = 0; instructionID < instructionLength; instructionID++)
 				instructions.push_back((uint8_t)vMem->ReadByte());
 
 			const int32_t SimpleFlagOnCurve = 1;
@@ -1074,74 +1076,72 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 			if (!endPtsOfContours.empty())
 			{
-				int countPoints = endPtsOfContours[vCountContour - 1] + 1;
-				if (countPoints > 0)
+				size_t countPoints = (size_t)endPtsOfContours[countContours - 1U] + 1; // always sup to 0 with the +1
+
+				xCoordinates.resize(countPoints);
+				yCoordinates.resize(countPoints);
+				onCurves.resize(countPoints);
+
+				uint32_t flag_repeat = 0;
+				int32_t flag = 0;
+				for (size_t pointID = 0; pointID < countPoints; pointID++)
 				{
-					xCoordinates.resize(countPoints);
-					yCoordinates.resize(countPoints);
-					onCurves.resize(countPoints);
-
-					uint32_t flag_repeat = 0;
-					int32_t flag = 0;
-					for (size_t i = 0; i < countPoints; i++)
+					if (flag_repeat == 0)
 					{
-						if (flag_repeat == 0)
+						flag = vMem->ReadByte();
+						if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
 						{
-							flag = vMem->ReadByte();
-							if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
-							{
-								flag_repeat = vMem->ReadByte();
-							}
-						}
-						else
-						{
-							flag_repeat--;
-						}
-
-						uint8_t u8Flag = (uint8_t)flag;
-						flags.push_back(u8Flag);
-
-						onCurves[i] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
-					}
-
-					for (size_t i = 0; i < countPoints; i++)
-					{
-						flag = flags[i];
-
-						if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
-						{
-							int16_t coord = (int16_t)vMem->ReadByte();
-							coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
-							xCoordinates[i] = coord;
-						}
-						else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
-						{
-							xCoordinates[i] = (int16_t)vMem->ReadShort();
-						}
-						if (i > 0)
-						{
-							xCoordinates[i] += xCoordinates[i - 1U];
+							flag_repeat = vMem->ReadByte();
 						}
 					}
-
-					for (size_t i = 0; i < countPoints; i++)
+					else
 					{
-						flag = flags[i];
+						flag_repeat--;
+					}
 
-						if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
-						{
-							int16_t coord = (int16_t)vMem->ReadByte();
-							coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
-							yCoordinates[i] = coord;
-						}
-						else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
-						{
-							yCoordinates[i] = (int16_t)vMem->ReadShort();
-						}
-						if (i > 0)
-						{
-							yCoordinates[i] += yCoordinates[i - 1U];
-						}
+					uint8_t u8Flag = (uint8_t)flag;
+					flags.push_back(u8Flag);
+
+					onCurves[pointID] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
+				}
+
+				for (size_t pointID = 0; pointID < countPoints; pointID++)
+				{
+					flag = flags[pointID];
+
+					if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
+					{
+						int16_t coord = (int16_t)vMem->ReadByte();
+						coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
+						xCoordinates[pointID] = coord;
+					}
+					else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
+					{
+						xCoordinates[pointID] = (int16_t)vMem->ReadShort();
+					}
+					if (pointID)
+					{
+						xCoordinates[pointID] += xCoordinates[pointID - 1U];
+					}
+				}
+
+				for (size_t pointID = 0; pointID < countPoints; pointID++)
+				{
+					flag = flags[pointID];
+
+					if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
+					{
+						int16_t coord = (int16_t)vMem->ReadByte();
+						coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
+						yCoordinates[pointID] = coord;
+					}
+					else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
+					{
+						yCoordinates[pointID] = (int16_t)vMem->ReadShort();
+					}
+					if (pointID)
+					{
+						yCoordinates[pointID] += yCoordinates[pointID - 1U];
 					}
 				}
 			}
@@ -1149,22 +1149,22 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			// convert in final glyph
 
 			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
-			LogInfos(vFlags, "Contours : %i\n", vCountContour);
+			LogInfos(vFlags, "Contours : %u\n", (uint32_t)countContours);
 
-			for (size_t c = 0; c < vCountContour; c++)
+			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
 				Contour contour;
 
-				size_t pmax = endPtsOfContours[c + 1] - endPtsOfContours[c];
-				LogInfos(vFlags, "Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
+				size_t pmax = endPtsOfContours[contourID + 1] - endPtsOfContours[contourID];
+				LogInfos(vFlags, "Contour %u, Count Points : %u\n", (uint32_t)contourID, (uint32_t)pmax);
 
 				for (size_t p = 0; p < pmax; p++)
 				{
 					ivec2 pt;
-					pt.x = (int32_t)xCoordinates[endPtsOfContours[c] + p];
-					pt.y = (int32_t)yCoordinates[endPtsOfContours[c] + p];
+					pt.x = (int32_t)xCoordinates[endPtsOfContours[contourID] + p];
+					pt.y = (int32_t)yCoordinates[endPtsOfContours[contourID] + p];
 					contour.m_Points.push_back(pt);
-					bool oc = onCurves[endPtsOfContours[c] + p];
+					bool oc = onCurves[endPtsOfContours[contourID] + p];
 					contour.m_OnCurve.push_back(oc);
 
 					LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
@@ -1179,7 +1179,8 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 	return glyph;
 }
 
-static const char* standardMacNames[258] =
+#define STANDARD_MAC_NAMES_COUNT 258
+static const char* standardMacNames[STANDARD_MAC_NAMES_COUNT] =
 { ".notdef", ".null", "nonmarkingreturn", "space", "exclam", "quotedbl", "numbersign", "dollar", "percent",
 "ampersand", "quotesingle", "parenleft", "parenright", "asterisk", "plus", "comma", "hyphen", "period",
 "slash", "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "colon",
@@ -1225,10 +1226,17 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		/*uint32_t minMemType1 =*/ (uint32_t)vMem->ReadULong();
 		/*uint32_t maxMemType1 =*/ (uint32_t)vMem->ReadULong();
 
-		if (format.high == 2)
+		if (format.high == 1)
+		{
+			for (size_t idx = 0; idx < STANDARD_MAC_NAMES_COUNT; idx++)
+			{
+				m_GlyphNames.push_back(standardMacNames[idx]);
+			}
+		}
+		else if (format.high == 2)
 		{
 			uint16_t numberOfGlyphs = (uint16_t)vMem->ReadUShort();
-			if (numberOfGlyphs == m_NumGlyphs)
+			if (numberOfGlyphs == m_TTFInfos.m_GlyphCount)
 			{
 				std::vector<uint16_t> glyphNameIndex;
 				for (int i = 0; i < numberOfGlyphs; i++)
@@ -1236,7 +1244,7 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					glyphNameIndex.push_back((uint16_t)vMem->ReadUShort());
 				}
 
-				size_t endPos = tbl.offset + tbl.length;
+				size_t endPos = (size_t)tbl.offset + (size_t)tbl.length;
 
 				std::vector<std::string> pendingNames;
 				while (vMem->GetPos() < endPos)
@@ -1266,9 +1274,17 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				LogError(vFlags, "ERR : POST Glyph count mismatch the Glyph count in MAXP\n");
 			}
 		}
+		else if (format.high == 3)
+		{
+			// not an error
+			// just post is wanted in any ttf as a base table
+			// but can be empty, and in this case the format is 3
+			// so no names but no error too
+			// https://docs.microsoft.com/en-us/typography/opentype/spec/post#version-30
+		}
 		else
 		{
-			LogError(vFlags, "ERR : POST Format %u not supported for the moment\n", format);
+			LogError(vFlags, "ERR : POST Format %u not supported for the moment\n", format.high);
 		}
 
 		return true;
@@ -1306,13 +1322,13 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 
 			m_Palettes.resize(numPalettes);
-			for (int paletteIndex = 0; paletteIndex < numPalettes; paletteIndex++)
+			for (size_t paletteIndex = 0; paletteIndex < numPalettes; paletteIndex++)
 			{
-				for (int paletteEntryIndex = 0; paletteEntryIndex < numPaletteEntries; paletteEntryIndex++)
+				for (size_t paletteEntryIndex = 0; paletteEntryIndex < numPaletteEntries; paletteEntryIndex++)
 				{
-					uint32_t colorRecordIndex = colorRecordIndices[paletteIndex] + paletteEntryIndex;
+					size_t colorRecordIndex = (size_t)colorRecordIndices[paletteIndex] + paletteEntryIndex;
 
-					vMem->SetPos(tbl.offset + colorRecordsArrayOffset + 4 * colorRecordIndex);
+					vMem->SetPos(tbl.offset + (size_t)colorRecordsArrayOffset + colorRecordIndex * 4U); //-V112
 
 					fvec4 col; // BGRA
 					col.z = (float)(vMem->ReadByte()) / 255.0f; // B
@@ -1323,7 +1339,6 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					m_Palettes[paletteIndex].push_back(col);
 				}
 			}
-
 		}
 		else
 		{
@@ -1354,18 +1369,18 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		uint32_t layerRecordsOffset = (uint32_t)vMem->ReadULong();
 		/*uint16_t numLayerRecords =*/ (uint16_t)vMem->ReadUShort();
 
-		for (uint16_t i = 0; i < numBaseGlyphRecords; i++)
+		for (size_t glyphRecordID = 0; glyphRecordID < (size_t)numBaseGlyphRecords; glyphRecordID++)
 		{
-			vMem->SetPos(tbl.offset + baseGlyphRecordsOffset + i * 6);
+			vMem->SetPos(tbl.offset + (size_t)baseGlyphRecordsOffset + glyphRecordID * 6U);
 			uint16_t baseGlyphID = (uint16_t)vMem->ReadUShort();
 			uint16_t firstLayerIndex = (uint16_t)vMem->ReadUShort();
 			uint16_t numLayers = (uint16_t)vMem->ReadUShort();
 
 			if (baseGlyphID < m_Glyphs.size())
 			{
-				for (uint16_t j = 0; j < numLayers; j++)
+				for (size_t layerID = 0; layerID < (size_t)numLayers; layerID++)
 				{
-					vMem->SetPos(tbl.offset + layerRecordsOffset + (firstLayerIndex + j) * 4);
+					vMem->SetPos(tbl.offset + (size_t)layerRecordsOffset + ((size_t)firstLayerIndex + layerID) * 4U); //-V112
 					LayerGlyph lg;
 					lg.glyphID = (uint16_t)vMem->ReadUShort();
 					lg.paletteID = (uint16_t)vMem->ReadUShort();
@@ -1418,15 +1433,17 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		m_TTFInfos.m_MinLeftSideBearing = (int16_t)vMem->ReadShort();
 		m_TTFInfos.m_MinRightSideBearing = (int16_t)vMem->ReadShort();
 		m_TTFInfos.m_XMaxExtent = (int16_t)vMem->ReadShort();
-		/*int16_t caretSlopeRise =*/ (int16_t)vMem->ReadShort();
-		/*int16_t caretSlopeRun =*/ (int16_t)vMem->ReadShort();
-		/*MemoryStream::FWord caretOffset =*/ (int16_t)vMem->ReadFWord();
-		/*int16_t reserved1 =*/ (int16_t)vMem->ReadShort();
-		/*int16_t reserved2 =*/ (int16_t)vMem->ReadShort();
-		/*int16_t reserved3 =*/ (int16_t)vMem->ReadShort();
-		/*int16_t reserved4 =*/ (int16_t)vMem->ReadShort();
-		/*int16_t metricDataFormat =*/ (int16_t)vMem->ReadShort();
-		m_MumOfLongHorMetrics = (int16_t)vMem->ReadShort();
+		/*
+		int16_t caretSlopeRise = (int16_t)vMem->ReadShort(); // 2
+		int16_t caretSlopeRun = (int16_t)vMem->ReadShort(); // 2
+		MemoryStream::FWord caretOffset = (int16_t)vMem->ReadFWord(); // 2
+		int16_t reserved1 = (int16_t)vMem->ReadShort(); // 2
+		int16_t reserved2 = (int16_t)vMem->ReadShort(); // 2
+		int16_t reserved3 = (int16_t)vMem->ReadShort(); // 2
+		int16_t reserved4 = (int16_t)vMem->ReadShort(); // 2
+		int16_t metricDataFormat = (int16_t)vMem->ReadShort(); // 2
+		*/ // total 16 bytes to offset
+		m_MumOfLongHorMetrics = (int16_t)vMem->ReadShort(16);
 
 		return true;
 	}
@@ -1446,7 +1463,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
 
-		if (m_MumOfLongHorMetrics > 0 && m_NumGlyphs > 0)
+		if (m_MumOfLongHorMetrics > 0 && m_TTFInfos.m_GlyphCount > 0)
 		{
 			struct longHorMetric
 			{
@@ -1471,10 +1488,10 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				}
 			}
 
-			if (m_NumGlyphs > m_MumOfLongHorMetrics)
+			if (m_TTFInfos.m_GlyphCount > (uint32_t)m_MumOfLongHorMetrics)
 			{
 				std::vector<MemoryStream::FWord> leftSideBearings;
-				size_t leftSideBearingCount = m_NumGlyphs - m_MumOfLongHorMetrics;
+				size_t leftSideBearingCount = (size_t)m_TTFInfos.m_GlyphCount - (size_t)m_MumOfLongHorMetrics;
 				leftSideBearings.resize(leftSideBearingCount);
 				for (GlyphIndex idx = 0; idx < leftSideBearingCount; idx++)
 				{
@@ -1482,7 +1499,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					GlyphIndex glyphID = m_MumOfLongHorMetrics + idx;
 					if (glyphID < m_Glyphs.size())
 					{
-						size_t lastMetric = m_MumOfLongHorMetrics - 1;
+						size_t lastMetric = (size_t)m_MumOfLongHorMetrics - 1U;
 						m_Glyphs[glyphID].m_AdvanceX = hMetrics[lastMetric].advanceWidth;
 						m_Glyphs[glyphID].m_LeftSideBearing = leftSideBearings[idx];
 						m_Glyphs[glyphID].m_RightSideBearing = hMetrics[lastMetric].advanceWidth -
@@ -1492,7 +1509,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else
 			{
-				if (m_NumGlyphs < m_MumOfLongHorMetrics)
+				if (m_TTFInfos.m_GlyphCount < (uint32_t)m_MumOfLongHorMetrics)
 					LogError(vFlags, "ERR : HMTX Glyph Count < to Long HMetrics Count\n");
 			}
 
@@ -1502,7 +1519,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			if (m_MumOfLongHorMetrics <= 0)
 				LogError(vFlags, "ERR : HMTX Mum Of Long HMetrics must be > to 0\n");
-			if (m_NumGlyphs <= 0)
+			if (m_TTFInfos.m_GlyphCount <= 0)
 				LogError(vFlags, "ERR : HMTX Count Glyphs must be > to 0\n");
 		}
 	}
