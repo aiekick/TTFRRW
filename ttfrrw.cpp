@@ -12,14 +12,88 @@
 //// LOGGING //////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-inline static void LogStr(const char* fmt, ...)
+inline static void LogInfos(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fmt, ...)
 {
 #ifdef VERBOSE_MODE
-	va_list args;
-	va_start(args, fmt);
-	vprintf(fmt, args);
-	va_end(args);
+	if (!(vFlags & TTFRRW::TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
+	{
+		va_list args;
+		va_start(args, fmt);
+		vprintf(fmt, args);
+		va_end(args);
+	}
 #endif
+}
+
+inline static void LogError(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fmt, ...)
+{
+#ifdef VERBOSE_MODE
+	if (!(vFlags & TTFRRW::TTFRRW_PROCESSING_FLAG_NO_ERRORS))
+	{
+		va_list args;
+		va_start(args, fmt);
+		vprintf(fmt, args);
+		va_end(args);
+	}
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////
+//// PROFIER //////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+
+void TTFRRW::cProfiler::start()
+{
+	firstTimeMark = std::chrono::duration_cast<std::chrono::milliseconds>
+		(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+void TTFRRW::cProfiler::end()
+{
+	int64_t secondTimeMark = std::chrono::duration_cast<std::chrono::milliseconds>
+		(std::chrono::system_clock::now().time_since_epoch()).count();
+
+	value += (double)(secondTimeMark - firstTimeMark) / 1000.0;
+	count++;
+}
+
+void TTFRRW::cProfiler::reset()
+{
+	value = 0.0;
+	count = 0;
+}
+
+double TTFRRW::cProfiler::result_Average()
+{
+	if (count > 0)
+		return value / (double)count;
+	return 0;
+}
+
+double TTFRRW::cProfiler::result_Full()
+{
+	return value;
+}
+
+size_t TTFRRW::cProfiler::result_Count()
+{
+	return count;
+}
+
+void TTFRRW::cProfiler::print(ttfrrwProcessingFlags vFlags, const char* parent, const char* label)
+{
+	if (vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_PROFILER)
+	{
+		if (count == 1)
+		{
+			printf("%s%s Time : %.9f s\n", parent, label, value);
+		}
+		else
+		{
+			double Average = result_Average();
+			printf("%s%s :\n%s\tAverage : %.9f s\n%s\tSum : %.9f s\n%s\tCount : %zu\n", parent, label, parent, Average, parent, value, parent, count);
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -31,7 +105,7 @@ TTFRRW::MemoryStream::MemoryStream()
 
 }
 
-TTFRRW::MemoryStream::MemoryStream(uint8_t * vDatas, size_t vSize)
+TTFRRW::MemoryStream::MemoryStream(uint8_t* vDatas, size_t vSize)
 {
 	Set(vDatas, vSize);
 }
@@ -50,7 +124,7 @@ void TTFRRW::MemoryStream::WriteByte(uint8_t b)
 	m_Datas.push_back(b);
 }
 
-void TTFRRW::MemoryStream::WriteBytes(std::vector<uint8_t> *buffer)
+void TTFRRW::MemoryStream::WriteBytes(std::vector<uint8_t>* buffer)
 {
 	if (buffer)
 	{
@@ -141,7 +215,7 @@ void TTFRRW::MemoryStream::SetPos(size_t vPos)
 	m_ReadPos = vPos;
 }
 
-void TTFRRW::MemoryStream::Set(uint8_t * vDatas, size_t vSize)
+void TTFRRW::MemoryStream::Set(uint8_t* vDatas, size_t vSize)
 {
 	if (vDatas && vSize)
 	{
@@ -201,10 +275,10 @@ uint32_t TTFRRW::MemoryStream::ReadULongAsInt(size_t vOffset)
 
 int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
 {
-	return 
-		ReadByte(vOffset) << 24 | 
-		ReadByte(vOffset) << 16 | 
-		ReadByte(vOffset) << 8 | 
+	return
+		ReadByte(vOffset) << 24 |
+		ReadByte(vOffset) << 16 |
+		ReadByte(vOffset) << 8 |
 		ReadByte(vOffset);
 }
 
@@ -296,9 +370,41 @@ TTFRRW::TTFRRW::~TTFRRW()
 
 }
 
-bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags)
+void TTFRRW::TTFRRW::Clear()
+{
+	m_TTFInfos = TTFInfos();
+	m_IsValid_For_Rasterize = false;
+	m_IsValid_For_GlyphTreatment = false;
+
+	m_Glyphs.clear();
+	m_GlyphNames.clear();
+	m_CodePoint_To_GlyphIndex.clear();
+	m_GlyphIndex_To_CodePoints.clear();
+
+	m_FontCopyright.clear();
+	m_FontFamily.clear();
+	m_FontSubFamily.clear();
+	m_FontFullName.clear();
+	m_FontTrademark.clear();
+	m_FontDesignerName.clear();
+	m_FontManufacturerName.clear();
+	m_UrlFontDesigner.clear();
+	m_UrlFontVendor.clear();
+
+	m_Tables.clear();
+	m_IndexToLocFormat = 0;
+	m_NumGlyphs = 0;
+	m_GlyphsOffsets.clear();
+	m_Palettes.clear();
+	m_MumOfLongHorMetrics = 0;
+}
+
+bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags, const char* vDebugInfos)
 {
 	bool res = false;
+
+	cProfiler mainProfiler;
+	mainProfiler.start();
 
 	MemoryStream mem;
 
@@ -308,12 +414,19 @@ bool TTFRRW::TTFRRW::OpenFontFile(const std::string& vFontFilePathName, ttfrrwPr
 	{
 		res = Parse_Font_File(&mem, vFlags);
 	}
+
+	mainProfiler.end();
+	mainProfiler.print(vFlags, "OpenFontFile ", vDebugInfos);
+
 	return res;
 }
 
-bool TTFRRW::TTFRRW::OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags)
+bool TTFRRW::TTFRRW::OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags, const char* vDebugInfos)
 {
 	bool res = false;
+
+	cProfiler mainProfiler;
+	mainProfiler.start();
 
 	if (vStream && vStreamSize)
 	{
@@ -323,6 +436,9 @@ bool TTFRRW::TTFRRW::OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrw
 
 		res = Parse_Font_File(&mem, vFlags);
 	}
+
+	mainProfiler.end();
+	mainProfiler.print(vFlags, "OpenFontStream ", vDebugInfos);
 
 	return res;
 }
@@ -352,6 +468,8 @@ TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIn
 
 bool TTFRRW::TTFRRW::WriteFontFile(const std::string& vFontFilePathName)
 {
+	(void)vFontFilePathName;
+
 	return "";
 }
 
@@ -412,7 +530,7 @@ bool TTFRRW::TTFRRW::IsValidFotGlyppTreatment()
 ///////////////////////////////////////////////////////////////////////
 
 bool TTFRRW::TTFRRW::LoadFileToMemory(
-	const std::string& vFilePathName, 
+	const std::string& vFilePathName,
 	MemoryStream* vInMem,
 	int* vError)
 {
@@ -454,7 +572,7 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 }
 
 bool TTFRRW::TTFRRW::WriteMemoryToFile(
-	const std::string& vFilePathName, 
+	const std::string& vFilePathName,
 	MemoryStream* vOutMem,
 	int* vError)
 {
@@ -481,7 +599,7 @@ bool TTFRRW::TTFRRW::WriteMemoryToFile(
 			}
 		}
 	}
-	
+
 	return res;
 }
 
@@ -508,9 +626,11 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 
 	if (vMem)
 	{
+		Clear();
+
 		if (Parse_Table_Header(vMem, vFlags))
 		{
-			bool cmapOK = Parse_CMAP_Table(vMem, vFlags);
+			/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags);
 			bool headOK = Parse_HEAD_Table(vMem, vFlags);
 			bool maxpOK = Parse_MAXP_Table(vMem, vFlags);
 			bool locaOK = Parse_LOCA_Table(vMem, vFlags);
@@ -536,7 +656,7 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			bool colrOK = false;
 			if (cpalOK) // dependencies
 				colrOK = Parse_COLR_Table(vMem, vFlags);
-			
+
 			// tres permissif, le minimum est d'avoir des glyphs
 			// le reste au besoin on le fera nous meme
 			res = glyfOK;
@@ -546,7 +666,7 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 		}
 		else
 		{
-			LogStr("ERR : Corrupted Header Table\n");
+			LogError(vFlags, "ERR : Corrupted Header Table\n");
 		}
 	}
 
@@ -560,14 +680,14 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 	if (scalerType[0] == 1)  scalerType = "TrueType 1"; // TrueType 1
 	if (scalerType[1] == 1)  scalerType = "OpenType 1"; // TrueType 1
 	uint16_t numTables = (uint16_t)vMem->ReadUShort();
-	uint16_t searchRange = (uint16_t)vMem->ReadUShort();
-	uint16_t entrySelector = (uint16_t)vMem->ReadUShort();
-	uint16_t rangeShift = (uint16_t)vMem->ReadUShort();
+	/*uint16_t searchRange =*/ (uint16_t)vMem->ReadUShort();
+	/*uint16_t entrySelector =*/ (uint16_t)vMem->ReadUShort();
+	/*uint16_t rangeShift =*/ (uint16_t)vMem->ReadUShort();
 
 	// tables
 	for (int i = 0; i < numTables; i++)
 	{
-		TTFR::TableStruct tbl;
+		TableStruct tbl;
 
 		uint32_t _tag = (uint32_t)vMem->ReadULong();
 		tbl.tag[0] = (uint8_t)((_tag >> 24) & 0xff);
@@ -581,47 +701,44 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 		tbl.length = (uint32_t)vMem->ReadULong();
 
 		std::string tagString = std::string((char*)tbl.tag);
-		m_TTFR.m_Tables[tagString] = tbl;
+		m_Tables[tagString] = tbl;
 
-		if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-		{
-			LogStr("Table %s found\n", tagString.c_str());
-		}
+		LogInfos(vFlags, "Table %s found\n", tagString.c_str());
 	}
 
-	return (!m_TTFR.m_Tables.empty());
+	return (!m_Tables.empty());
 }
 
 bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
 	if (!vMem) return false;
 
-	if (m_TTFR.m_Tables.find("cmap") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("cmap") != m_Tables.end())
 	{
-		const auto tbl = m_TTFR.m_Tables["cmap"];
+		const auto tbl = m_Tables["cmap"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
-		uint16_t version = (uint16_t)vMem->ReadUShort();
+		/*uint16_t version =*/ (uint16_t)vMem->ReadUShort();
 		uint16_t numEncodingRecords = (uint16_t)vMem->ReadUShort();
 
 		for (size_t encodingRecord = 0; encodingRecord < (size_t)numEncodingRecords; encodingRecord++)
 		{
 			vMem->SetPos(tbl.offset + 4U);
 
-			uint16_t platformID = (uint16_t)vMem->ReadUShort();
-			uint16_t encodingID = (uint16_t)vMem->ReadUShort();
+			/*uint16_t platformID =*/ (uint16_t)vMem->ReadUShort();
+			/*uint16_t encodingID =*/ (uint16_t)vMem->ReadUShort();
 			uint32_t offset = (uint16_t)vMem->ReadULong();
 
 			vMem->SetPos(tbl.offset + offset);
 
 			uint16_t format = (uint16_t)vMem->ReadUShort();
-			uint16_t length = (uint16_t)vMem->ReadUShort();
+			/*uint16_t length =*/ (uint16_t)vMem->ReadUShort();
 
 			if (format == 0)
 			{
-				uint16_t language = (uint16_t)vMem->ReadUShort();
-				for (int glyphIndex = 0; glyphIndex < 256; glyphIndex++)
+				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
+				for (GlyphIndex glyphIndex = 0; glyphIndex < 256; glyphIndex++)
 				{
 					uint8_t codePoint = vMem->ReadByte();
 					m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
@@ -630,14 +747,13 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else if (format == 4)
 			{
-				uint16_t language = (uint16_t)vMem->ReadUShort();
+				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				uint16_t segCountX2 = (uint16_t)vMem->ReadUShort();
-				uint16_t searchRange = (uint16_t)vMem->ReadUShort();
-				uint16_t entrySelector = (uint16_t)vMem->ReadUShort();
-				uint16_t rangeShift = (uint16_t)vMem->ReadUShort();
+				/*uint16_t searchRange =*/ (uint16_t)vMem->ReadUShort();
+				/*uint16_t entrySelector =*/ (uint16_t)vMem->ReadUShort();
+				/*uint16_t rangeShift =*/ (uint16_t)vMem->ReadUShort();
 
 				std::vector<uint16_t> endCode;
-				uint16_t reservedPad = 0;
 				std::vector<uint16_t> startCode;
 				std::vector<int16_t> idDelta;
 				std::vector<uint16_t> idRangeOffset;
@@ -648,7 +764,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				{
 					endCode.push_back((uint16_t)vMem->ReadUShort());
 				}
-				reservedPad = (uint16_t)vMem->ReadUShort();
+				/*uint16_t reservedPad =*/ (uint16_t)vMem->ReadUShort();
 				for (int i = 0; i < segCount; i++)
 				{
 					startCode.push_back((uint16_t)vMem->ReadUShort());
@@ -690,9 +806,9 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					{
 						bool glyphIndexFound = false;
 
-						int32_t foundGlyphIndex = 0;
+						GlyphIndex foundGlyphIndex = 0;
 
-						int32_t start = startCode[segment];
+						start = startCode[segment];
 						if (codePoint < start)
 						{
 							//notdef;
@@ -718,14 +834,11 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 							{
 								m_CodePoint_To_GlyphIndex[codePoint] = foundGlyphIndex;
 								m_GlyphIndex_To_CodePoints[foundGlyphIndex].emplace(codePoint);
-								if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-								{
-									LogStr("CodePoint %u => GlyphIndex %u\n", codePoint, foundGlyphIndex);
-								}
+								LogInfos(vFlags, "CodePoint %u => GlyphIndex %u\n", codePoint, foundGlyphIndex);
 							}
 							else
 							{
-								LogStr("ERR : CodePoint %u => Error\n", codePoint);
+								LogError(vFlags, "ERR : CodePoint %u => Error\n", codePoint);
 							}
 						}
 					}
@@ -733,7 +846,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else
 			{
-				LogStr("ERR : CMAP Format %u not supported for the moment\n", format);
+				LogError(vFlags, "ERR : CMAP Format %u not supported for the moment\n", format);
 			}
 		}
 
@@ -741,7 +854,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	}
 	else
 	{
-		LogStr("ERR : CMAP Table not found\n");
+		LogError(vFlags, "ERR : CMAP Table not found\n");
 	}
 
 	return false;
@@ -749,35 +862,35 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("head") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("head") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["head"];
+		auto tbl = m_Tables["head"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
-		MemoryStream::Fixed version = vMem->ReadFixed();
-		MemoryStream::Fixed fontRevision = vMem->ReadFixed();
-		uint32_t checkSumAdjustment = (uint32_t)vMem->ReadULong();
-		uint32_t magicNumber = (uint32_t)vMem->ReadULong();
-		uint16_t flags = (uint16_t)vMem->ReadUShort(); // bitset
-		uint16_t unitsPerEm = (uint16_t)vMem->ReadUShort();
-		MemoryStream::longDateTime created = vMem->ReadDateTime();
-		MemoryStream::longDateTime modified = vMem->ReadDateTime();
+		/*MemoryStream::Fixed version =*/ vMem->ReadFixed();
+		/*MemoryStream::Fixed fontRevision =*/ vMem->ReadFixed();
+		/*uint32_t checkSumAdjustment =*/ (uint32_t)vMem->ReadULong();
+		/*uint32_t magicNumber =*/ (uint32_t)vMem->ReadULong();
+		/*uint16_t flags =*/ (uint16_t)vMem->ReadUShort(); // bitset
+		/*uint16_t unitsPerEm =*/ (uint16_t)vMem->ReadUShort();
+		/*MemoryStream::longDateTime created =*/ vMem->ReadDateTime();
+		/*MemoryStream::longDateTime modified */ vMem->ReadDateTime();
 		m_TTFInfos.m_GlobalBBox.lowerBound.x = vMem->ReadFWord();
 		m_TTFInfos.m_GlobalBBox.lowerBound.y = vMem->ReadFWord();
 		m_TTFInfos.m_GlobalBBox.upperBound.x = vMem->ReadFWord();
 		m_TTFInfos.m_GlobalBBox.upperBound.y = vMem->ReadFWord();
-		uint16_t macStyle = (uint16_t)vMem->ReadUShort(); // bitset
-		uint16_t lowestRecPPEM = (uint16_t)vMem->ReadUShort();
-		uint16_t fontDirectionHint = (int16_t)vMem->ReadShort();
+		/*uint16_t macStyle =*/ (uint16_t)vMem->ReadUShort(); // bitset
+		/*uint16_t lowestRecPPEM =*/ (uint16_t)vMem->ReadUShort();
+		/*uint16_t fontDirectionHint =*/ (int16_t)vMem->ReadShort();
 		m_IndexToLocFormat = (int16_t)vMem->ReadShort();
-		uint16_t glyphDataFormat = (int16_t)vMem->ReadShort();
+		/*uint16_t glyphDataFormat =*/ (int16_t)vMem->ReadShort();
 
 		return true;
 	}
 	else
 	{
-		LogStr("ERR : HEAD Table not found\n");
+		LogError(vFlags, "ERR : HEAD Table not found\n");
 	}
 
 	return false;
@@ -785,15 +898,15 @@ bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("maxp") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("maxp") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["maxp"];
+		auto tbl = m_Tables["maxp"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
-		MemoryStream::Fixed version = vMem->ReadFixed();
+		/*MemoryStream::Fixed version =*/ vMem->ReadFixed();
 		m_NumGlyphs = (uint16_t)vMem->ReadUShort();
-		uint16_t maxPoints = (uint16_t)vMem->ReadUShort();
+		/*uint16_t maxPoints = (uint16_t)vMem->ReadUShort();
 		uint16_t maxContours = (uint16_t)vMem->ReadUShort();
 		uint16_t maxComponentPoints = (uint16_t)vMem->ReadUShort();
 		uint16_t maxComponentContours = (uint16_t)vMem->ReadUShort();
@@ -805,13 +918,13 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		uint16_t maxStackElements = (uint16_t)vMem->ReadUShort();
 		uint16_t maxSizeOfInstructions = (uint16_t)vMem->ReadUShort();
 		uint16_t maxComponentElements = (uint16_t)vMem->ReadUShort();
-		uint16_t maxComponentDepth = (uint16_t)vMem->ReadUShort();
-	
+		uint16_t maxComponentDepth = (uint16_t)vMem->ReadUShort();*/
+
 		return true;
 	}
 	else
 	{
-		LogStr("ERR : MAXP Table not found\n");
+		LogError(vFlags, "ERR : MAXP Table not found\n");
 	}
 
 	return false;
@@ -819,11 +932,11 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("loca") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("loca") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["loca"];
+		auto tbl = m_Tables["loca"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
 		m_GlyphsOffsets.resize(m_NumGlyphs);
 
@@ -848,7 +961,7 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	}
 	else
 	{
-		LogStr("ERR : LOCA Table not found\n");
+		LogError(vFlags, "ERR : LOCA Table not found\n");
 	}
 
 	return false;
@@ -856,11 +969,11 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("glyf") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("glyf") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["glyf"];
+		auto tbl = m_Tables["glyf"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
 		int length = 0;
 		for (size_t i = 0; i < (size_t)m_NumGlyphs; i++)
@@ -875,10 +988,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			MemoryStream::FWord xMax = vMem->ReadFWord();
 			MemoryStream::FWord yMax = vMem->ReadFWord();
 
-			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-			{
-				LogStr("-----------------------\n");
-			}
+			LogInfos(vFlags, "-----------------------\n");
 
 			Glyph glyph;
 			glyph.m_LocalBBox.lowerBound.x = xMin;
@@ -889,20 +999,14 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			if (i < m_GlyphNames.size())
 				glyph.m_Name = m_GlyphNames[i];
 
-			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-			{
-				LogStr("BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
-			}
+			LogInfos(vFlags, "BBox : %i,%i > %i,%i\n", xMin, yMin, xMax, yMax);
 
 			if (numberOfContours >= 0) // simple glyf
 			{
-				if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-				{
-					LogStr("Glyph %u : Simple Glyph\n", (uint32_t)i);
-				}
+				LogInfos(vFlags, "Glyph %u : Simple Glyph\n", (uint32_t)i);
 
 				glyph.m_IsSimple = true;
-				
+
 				if (!(vFlags & TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING))
 				{
 					auto g = Parse_Simple_Glyf(vMem, numberOfContours, vFlags);
@@ -913,20 +1017,16 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else // composite glyf
 			{
-				if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-				{
-					LogStr("Glyph %u : Composite Glyph\n", (uint32_t)i);
-				}
+				LogInfos(vFlags, "Glyph %u : Composite Glyph\n", (uint32_t)i);
 
 				glyph.m_IsSimple = false;
 			}
 
 			m_Glyphs.push_back(glyph);
 
-			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-			{
-				LogStr("-----------------------\n");
-			}
+
+			LogInfos(vFlags, "-----------------------\n");
+
 
 			length = offset;
 		}
@@ -935,7 +1035,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	}
 	else
 	{
-		LogStr("ERR : GLYF Table not found\n");
+		LogError(vFlags, "ERR : GLYF Table not found\n");
 	}
 
 	return false;
@@ -1006,7 +1106,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 					for (size_t i = 0; i < countPoints; i++)
 					{
-						auto flag = flags[i];
+						flag = flags[i];
 
 						if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
 						{
@@ -1026,7 +1126,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 					for (size_t i = 0; i < countPoints; i++)
 					{
-						auto flag = flags[i];
+						flag = flags[i];
 
 						if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
 						{
@@ -1049,19 +1149,15 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			// convert in final glyph
 
 			endPtsOfContours.insert(endPtsOfContours.begin(), 0);
-			if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-			{
-				LogStr("Contours : %i\n", vCountContour);
-			}
+			LogInfos(vFlags, "Contours : %i\n", vCountContour);
+
 			for (size_t c = 0; c < vCountContour; c++)
 			{
 				Contour contour;
 
 				size_t pmax = endPtsOfContours[c + 1] - endPtsOfContours[c];
-				if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-				{
-					LogStr("Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
-				}
+				LogInfos(vFlags, "Contour %u, Count Points : %u\n", (uint32_t)c, (uint32_t)pmax);
+
 				for (size_t p = 0; p < pmax; p++)
 				{
 					ivec2 pt;
@@ -1070,10 +1166,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 					contour.m_Points.push_back(pt);
 					bool oc = onCurves[endPtsOfContours[c] + p];
 					contour.m_OnCurve.push_back(oc);
-					if (!(vFlags & TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
-					{
-						LogStr("Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
-					}
+
+					LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+
 				}
 
 				glyph.m_Contours.push_back(contour);
@@ -1112,23 +1207,23 @@ static const char* standardMacNames[258] =
 
 bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("post") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("post") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["post"];
+		auto tbl = m_Tables["post"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
 		m_GlyphNames.clear();
 
 		MemoryStream::Fixed format = vMem->ReadFixed();;
-		MemoryStream::Fixed italicAngle = vMem->ReadFixed();
-		MemoryStream::FWord underlinePosition = (MemoryStream::FWord)vMem->ReadFWord();
-		MemoryStream::FWord underlineThickness = (MemoryStream::FWord)vMem->ReadFWord();
-		uint32_t isFixedPitch = (uint32_t)vMem->ReadULong();
-		uint32_t minMemType42 = (uint32_t)vMem->ReadULong();
-		uint32_t maxMemType42 = (uint32_t)vMem->ReadULong();
-		uint32_t minMemType1 = (uint32_t)vMem->ReadULong();
-		uint32_t maxMemType1 = (uint32_t)vMem->ReadULong();
+		/*MemoryStream::Fixed italicAngle =*/ vMem->ReadFixed();
+		/*MemoryStream::FWord underlinePosition =*/ (MemoryStream::FWord)vMem->ReadFWord();
+		/*MemoryStream::FWord underlineThickness =*/ (MemoryStream::FWord)vMem->ReadFWord();
+		/*uint32_t isFixedPitch =*/ (uint32_t)vMem->ReadULong();
+		/*uint32_t minMemType42 =*/ (uint32_t)vMem->ReadULong();
+		/*uint32_t maxMemType42 =*/ (uint32_t)vMem->ReadULong();
+		/*uint32_t minMemType1 =*/ (uint32_t)vMem->ReadULong();
+		/*uint32_t maxMemType1 =*/ (uint32_t)vMem->ReadULong();
 
 		if (format.high == 2)
 		{
@@ -1168,19 +1263,19 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			}
 			else
 			{
-				LogStr("ERR : POST Glyph count mismatch the Glyph count in MAXP\n");
+				LogError(vFlags, "ERR : POST Glyph count mismatch the Glyph count in MAXP\n");
 			}
 		}
 		else
 		{
-			LogStr("ERR : POST Format %u not supported for the moment\n", format);
+			LogError(vFlags, "ERR : POST Format %u not supported for the moment\n", format);
 		}
 
 		return true;
 	}
 	else
 	{
-		LogStr("ERR : POST Table not found\n");
+		LogError(vFlags, "ERR : POST Table not found\n");
 	}
 
 	return false;
@@ -1188,11 +1283,11 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("CPAL") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("CPAL") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["CPAL"];
+		auto tbl = m_Tables["CPAL"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
 		uint16_t version = (uint16_t)vMem->ReadUShort();
 
@@ -1200,7 +1295,7 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		{
 			uint16_t numPaletteEntries = (uint16_t)vMem->ReadUShort();
 			uint16_t numPalettes = (uint16_t)vMem->ReadUShort();
-			uint16_t numColorRecords = (uint16_t)vMem->ReadUShort();
+			/*uint16_t numColorRecords =*/ (uint16_t)vMem->ReadUShort();
 			uint32_t colorRecordsArrayOffset = (uint32_t)vMem->ReadULong();
 
 			std::vector<uint16_t> colorRecordIndices; // numPalettes
@@ -1216,7 +1311,7 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				for (int paletteEntryIndex = 0; paletteEntryIndex < numPaletteEntries; paletteEntryIndex++)
 				{
 					uint32_t colorRecordIndex = colorRecordIndices[paletteIndex] + paletteEntryIndex;
-					
+
 					vMem->SetPos(tbl.offset + colorRecordsArrayOffset + 4 * colorRecordIndex);
 
 					fvec4 col; // BGRA
@@ -1224,7 +1319,7 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					col.y = (float)(vMem->ReadByte()) / 255.0f; // G
 					col.x = (float)(vMem->ReadByte()) / 255.0f; // R
 					col.w = (float)(vMem->ReadByte()) / 255.0f; // A
-					
+
 					m_Palettes[paletteIndex].push_back(col);
 				}
 			}
@@ -1232,14 +1327,14 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		}
 		else
 		{
-			LogStr("ERR : CPAL Format %u not supported for the moment\n", version);
+			LogError(vFlags, "ERR : CPAL Format %u not supported for the moment\n", version);
 		}
 
 		return true;
 	}
 	else
 	{
-		LogStr("ERR : CPAL Table not found\n");
+		LogError(vFlags, "ERR : CPAL Table not found\n");
 	}
 
 	return false;
@@ -1247,17 +1342,17 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("COLR") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("COLR") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["COLR"];
+		auto tbl = m_Tables["COLR"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
-		uint16_t version = (uint16_t)vMem->ReadUShort();
+		/*uint16_t version =*/ (uint16_t)vMem->ReadUShort();
 		uint16_t numBaseGlyphRecords = (uint16_t)vMem->ReadUShort();
 		uint32_t baseGlyphRecordsOffset = (uint32_t)vMem->ReadULong();
 		uint32_t layerRecordsOffset = (uint32_t)vMem->ReadULong();
-		uint16_t numLayerRecords = (uint16_t)vMem->ReadUShort();
+		/*uint16_t numLayerRecords =*/ (uint16_t)vMem->ReadUShort();
 
 		for (uint16_t i = 0; i < numBaseGlyphRecords; i++)
 		{
@@ -1287,10 +1382,10 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 								m_Glyphs[lg.glyphID].m_IsLayer = true;
 							}
 							else
-								LogStr("ERR : COLR Layer.GlyphId >= than glyph count\n", version);
+								LogError(vFlags, "ERR : COLR Layer.GlyphId >= than glyph count\n");
 						}
 						else
-							LogStr("ERR : COLR paletteID > than palette entry count\n", version);
+							LogError(vFlags, "ERR : COLR paletteID > than palette entry count\n");
 					}
 					m_Glyphs[baseGlyphID].m_LayerGlyphs.push_back(lg);
 				}
@@ -1301,7 +1396,7 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	}
 	else
 	{
-		LogStr("ERR : COLR Table not found\n");
+		LogError(vFlags, "ERR : COLR Table not found\n");
 	}
 
 	return false;
@@ -1309,13 +1404,13 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("hhea") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("hhea") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["hhea"];
+		auto tbl = m_Tables["hhea"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
-		MemoryStream::Fixed version = vMem->ReadFixed();
+		/*MemoryStream::Fixed version =*/ vMem->ReadFixed();
 		m_TTFInfos.m_Ascent = (int16_t)vMem->ReadShort();
 		m_TTFInfos.m_Descent = (int16_t)vMem->ReadShort();
 		m_TTFInfos.m_LineGap = (int16_t)vMem->ReadShort();
@@ -1323,21 +1418,21 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		m_TTFInfos.m_MinLeftSideBearing = (int16_t)vMem->ReadShort();
 		m_TTFInfos.m_MinRightSideBearing = (int16_t)vMem->ReadShort();
 		m_TTFInfos.m_XMaxExtent = (int16_t)vMem->ReadShort();
-		int16_t caretSlopeRise = (int16_t)vMem->ReadShort();
-		int16_t caretSlopeRun = (int16_t)vMem->ReadShort();
-		MemoryStream::FWord caretOffset = (int16_t)vMem->ReadFWord();
-		int16_t reserved1 = (int16_t)vMem->ReadShort();
-		int16_t reserved2 = (int16_t)vMem->ReadShort();
-		int16_t reserved3 = (int16_t)vMem->ReadShort();
-		int16_t reserved4 = (int16_t)vMem->ReadShort();
-		int16_t metricDataFormat = (int16_t)vMem->ReadShort();
+		/*int16_t caretSlopeRise =*/ (int16_t)vMem->ReadShort();
+		/*int16_t caretSlopeRun =*/ (int16_t)vMem->ReadShort();
+		/*MemoryStream::FWord caretOffset =*/ (int16_t)vMem->ReadFWord();
+		/*int16_t reserved1 =*/ (int16_t)vMem->ReadShort();
+		/*int16_t reserved2 =*/ (int16_t)vMem->ReadShort();
+		/*int16_t reserved3 =*/ (int16_t)vMem->ReadShort();
+		/*int16_t reserved4 =*/ (int16_t)vMem->ReadShort();
+		/*int16_t metricDataFormat =*/ (int16_t)vMem->ReadShort();
 		m_MumOfLongHorMetrics = (int16_t)vMem->ReadShort();
 
 		return true;
 	}
 	else
 	{
-		LogStr("ERR : HHEA Table not found\n");
+		LogError(vFlags, "ERR : HHEA Table not found\n");
 	}
 
 	return false;
@@ -1345,11 +1440,11 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags)
 {
-	if (m_TTFR.m_Tables.find("hmtx") != m_TTFR.m_Tables.end())
+	if (m_Tables.find("hmtx") != m_Tables.end())
 	{
-		auto tbl = m_TTFR.m_Tables["hmtx"];
+		auto tbl = m_Tables["hmtx"];
 		vMem->SetPos(tbl.offset);
-		uint32_t len = tbl.length;
+		//uint32_t len = tbl.length;
 
 		if (m_MumOfLongHorMetrics > 0 && m_NumGlyphs > 0)
 		{
@@ -1371,7 +1466,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				{
 					m_Glyphs[glyphID].m_AdvanceX = lhm.advanceWidth;
 					m_Glyphs[glyphID].m_LeftSideBearing = lhm.leftSideBearing;
-					m_Glyphs[glyphID].m_RightSideBearing = lhm.advanceWidth - 
+					m_Glyphs[glyphID].m_RightSideBearing = lhm.advanceWidth -
 						(lhm.leftSideBearing + m_Glyphs[glyphID].m_LocalBBox.upperBound.x - m_Glyphs[glyphID].m_LocalBBox.lowerBound.x);
 				}
 			}
@@ -1398,7 +1493,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			else
 			{
 				if (m_NumGlyphs < m_MumOfLongHorMetrics)
-					LogStr("ERR : HMTX Glyph Count < to Long HMetrics Count\n");
+					LogError(vFlags, "ERR : HMTX Glyph Count < to Long HMetrics Count\n");
 			}
 
 			return true;
@@ -1406,14 +1501,14 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		else
 		{
 			if (m_MumOfLongHorMetrics <= 0)
-				LogStr("ERR : HMTX Mum Of Long HMetrics must be > to 0\n");
+				LogError(vFlags, "ERR : HMTX Mum Of Long HMetrics must be > to 0\n");
 			if (m_NumGlyphs <= 0)
-				LogStr("ERR : HMTX Count Glyphs must be > to 0\n");
+				LogError(vFlags, "ERR : HMTX Count Glyphs must be > to 0\n");
 		}
 	}
 	else
 	{
-		LogStr("ERR : HMTX Table not found\n");
+		LogError(vFlags, "ERR : HMTX Table not found\n");
 	}
 
 	return false;

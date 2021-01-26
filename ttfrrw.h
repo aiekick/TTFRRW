@@ -10,12 +10,45 @@
 #include <stdarg.h> // variadic
 #include <utility> // pair
 #include <cmath>
+#include <chrono> // profiler
+
 
 namespace TTFRRW
 {
 	typedef uint16_t CodePoint;
 	typedef uint16_t GlyphIndex;
 	typedef uint16_t PaletteIndex;
+
+	typedef int ttfrrwProcessingFlags;
+	enum ttfrrwProcessingFlags_
+	{
+		TTFRRW_PROCESSING_FLAG_NONE = 0,
+		TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING = (1 << 0), // on ne parse pas les points, on prend juste des stats de bases
+		TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS = (1 << 1), // print only the errors to the console
+		TTFRRW_PROCESSING_FLAG_VERBOSE_PROFILER = (1 << 2), // print profiler
+		TTFRRW_PROCESSING_FLAG_NO_ERRORS = (1 << 3), // print no erros
+	};
+
+	///////////////////////////////////////////////////////////////////////
+	///// PROFILER ////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+
+	class cProfiler
+	{
+	private:
+		int64_t firstTimeMark = 0;
+		double value = 0.0;
+		size_t count = 0;
+
+	public:
+		void start();
+		void end();
+		void reset();
+		double result_Average();
+		double result_Full();
+		size_t result_Count();
+		void print(ttfrrwProcessingFlags vFlags, const char* parent, const char* label);
+	};
 
 	///////////////////////////////////////////////////////////////////////
 	///// COMMON///////////////////////////////////////////////////////////
@@ -429,29 +462,6 @@ namespace TTFRRW
 	///// MAIN CLASS TTFRRW ///////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
-	typedef int ttfrrwProcessingFlags;
-	enum ttfrrwProcessingFlags_
-	{
-		TTFRRW_PROCESSING_FLAG_NONE = 0,
-		TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING = (1 << 0), // on ne parse pas les points, on prend juste des stats de bases
-		TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS = (1 << 1), // print only the errors to the console
-	};
-
-	class TTFR
-	{
-	public:
-		struct TableStruct
-		{
-			uint8_t tag[5] = {};
-			uint32_t checkSum = 0;
-			uint32_t offset = 0;
-			uint32_t length = 0;
-		};
-
-	public:
-		std::unordered_map<std::string, TTFR::TableStruct> m_Tables;
-	};
-
 	class TTFInfos
 	{
 	public:
@@ -468,7 +478,6 @@ namespace TTFRRW
 	class TTFRRW
 	{
 	private:
-		TTFR m_TTFR;
 		TTFInfos m_TTFInfos;
 		bool m_IsValid_For_Rasterize = false;
 		bool m_IsValid_For_GlyphTreatment = false;
@@ -495,8 +504,10 @@ namespace TTFRRW
 		TTFRRW();
 		~TTFRRW();
 
-		bool OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags = 0);
-		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags = 0);
+		void Clear();
+
+		bool OpenFontFile(const std::string& vFontFilePathName, ttfrrwProcessingFlags vFlags = 0, const char* vDebugInfos = "");
+		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, ttfrrwProcessingFlags vFlags = 0, const char* vDebugInfos = "");
 		std::vector<Glyph>* GetGlyphs();
 		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
 		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);
@@ -522,8 +533,9 @@ namespace TTFRRW
 			uint32_t offset = 0;
 			uint32_t length = 0;
 		};
+
 	private: // read table
-		std::unordered_map<std::string, TTFR::TableStruct> m_Tables;
+		std::unordered_map<std::string, TableStruct> m_Tables;
 		uint16_t m_IndexToLocFormat = 0; // head table : loca format
 		uint16_t m_NumGlyphs = 0; // maxp table : count glyphs
 		std::vector<uint32_t> m_GlyphsOffsets; // loca table : glyphs address
