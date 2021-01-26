@@ -41,6 +41,10 @@ TTFRRW::MemoryStream::~MemoryStream()
 
 }
 
+////////////////////////////////////////////////////////////////
+//// WRITE /////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
 void TTFRRW::MemoryStream::WriteByte(uint8_t b)
 {
 	m_Datas.push_back(b);
@@ -148,80 +152,92 @@ void TTFRRW::MemoryStream::Set(uint8_t * vDatas, size_t vSize)
 	}
 }
 
-uint8_t TTFRRW::MemoryStream::ReadByte()
+////////////////////////////////////////////////////////////////
+//// READ //////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+uint8_t TTFRRW::MemoryStream::ReadByte(size_t vOffset)
 {
-	if (m_ReadPos < m_Datas.size())
-		return m_Datas[m_ReadPos++];
+	if (vOffset + m_ReadPos < m_Datas.size())
+		return m_Datas[vOffset + m_ReadPos++];
 	return 0;
 }
 
-int32_t TTFRRW::MemoryStream::ReadUShort()
+int32_t TTFRRW::MemoryStream::ReadUShort(size_t vOffset)
 {
-	return 0xffff & (ReadByte() << 8 | ReadByte());
+	return 0xffff & (ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
-int32_t TTFRRW::MemoryStream::ReadShort()
+int32_t TTFRRW::MemoryStream::ReadShort(size_t vOffset)
 {
-	return ((ReadByte() << 8 | ReadByte()) << 16) >> 16;
+	return ((ReadByte(vOffset) << 8 | ReadByte(vOffset)) << 16) >> 16;
 }
 
-TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord()
+TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord(size_t vOffset)
 {
-	return (int16_t)ReadShort();
+	return (int16_t)ReadShort(vOffset);
 }
 
-TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord()
+TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord(size_t vOffset)
 {
-	return (uint16_t)ReadUShort();
+	return (uint16_t)ReadUShort(vOffset);
 }
 
-uint32_t TTFRRW::MemoryStream::ReadUInt24()
+uint32_t TTFRRW::MemoryStream::ReadUInt24(size_t vOffset)
 {
-	return 0xffffff & (ReadByte() << 16 | ReadByte() << 8 | ReadByte());
+	return 0xffffff & (ReadByte(vOffset) << 16 | ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
-uint64_t TTFRRW::MemoryStream::ReadULong()
+uint64_t TTFRRW::MemoryStream::ReadULong(size_t vOffset)
 {
-	return 0xffffffffL & ReadLong();
+	return 0xffffffffL & ReadLong(vOffset);
 }
 
-uint32_t TTFRRW::MemoryStream::ReadULongAsInt()
+uint32_t TTFRRW::MemoryStream::ReadULongAsInt(size_t vOffset)
 {
-	int64_t ulong = ReadULong();
+	int64_t ulong = ReadULong(vOffset);
 	return ((int32_t)ulong) & ~0x80000000;
 }
 
-int32_t TTFRRW::MemoryStream::ReadLong()
+int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
 {
-	return ReadByte() << 24 | ReadByte() << 16 | ReadByte() << 8 | ReadByte();
+	return 
+		ReadByte(vOffset) << 24 | 
+		ReadByte(vOffset) << 16 | 
+		ReadByte(vOffset) << 8 | 
+		ReadByte(vOffset);
 }
 
-TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed()
+TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(size_t vOffset)
 {
 	Fixed res;
-	int32_t f = ReadLong();
+	int32_t f = ReadLong(vOffset);
 	res.high = (int16_t)((f >> 16) & 0xff);
 	res.low = (int16_t)(f & 0xff);
 	return res;
 }
 
-TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14()
+TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(size_t vOffset)
 {
 	F2DOT14 res;
-	res.value = (int16_t)ReadShort();
+	res.value = (int16_t)ReadShort(vOffset);
 	return res;
 }
 
-TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime()
+TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(size_t vOffset)
 {
-	return (int64_t)ReadULong() << 32 | ReadULong();
+	return (int64_t)ReadULong(vOffset) << 32 | ReadULong(vOffset);
 }
 
-std::string TTFRRW::MemoryStream::ReadString(size_t vLen)
+std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
 {
-	std::string res = std::string((char*)(m_Datas.data() + m_ReadPos), vLen);
-	m_ReadPos += vLen;
-	return res;
+	if (vOffset + m_ReadPos + vLen < m_Datas.size())
+	{
+		std::string res = std::string((char*)(m_Datas.data() + vOffset + m_ReadPos), vLen);
+		m_ReadPos += vLen;
+		return res;
+	}
+	return "";
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -376,6 +392,21 @@ std::set<TTFRRW::CodePoint>* TTFRRW::TTFRRW::GetCodePointsFromGlyphIndex(const G
 	return nullptr;
 }
 
+TTFRRW::TTFInfos TTFRRW::TTFRRW::GetFontInfos()
+{
+	return m_TTFInfos;
+}
+
+bool TTFRRW::TTFRRW::IsValidForRasterize()
+{
+	return m_IsValid_For_Rasterize;
+}
+
+bool TTFRRW::TTFRRW::IsValidFotGlyppTreatment()
+{
+	return m_IsValid_For_GlyphTreatment;
+}
+
 ///////////////////////////////////////////////////////////////////////
 //// PRIVATE FILE / STREAM ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -509,6 +540,9 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			// tres permissif, le minimum est d'avoir des glyphs
 			// le reste au besoin on le fera nous meme
 			res = glyfOK;
+
+			m_IsValid_For_GlyphTreatment = res;
+			m_IsValid_For_Rasterize = (glyfOK && hmtxOK);
 		}
 		else
 		{
@@ -729,10 +763,10 @@ bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		uint16_t unitsPerEm = (uint16_t)vMem->ReadUShort();
 		MemoryStream::longDateTime created = vMem->ReadDateTime();
 		MemoryStream::longDateTime modified = vMem->ReadDateTime();
-		MemoryStream::FWord xMin = vMem->ReadFWord();
-		MemoryStream::FWord yMin = vMem->ReadFWord();
-		MemoryStream::FWord xMax = vMem->ReadFWord();
-		MemoryStream::FWord yMax = vMem->ReadFWord();
+		m_TTFInfos.m_GlobalBBox.lowerBound.x = vMem->ReadFWord();
+		m_TTFInfos.m_GlobalBBox.lowerBound.y = vMem->ReadFWord();
+		m_TTFInfos.m_GlobalBBox.upperBound.x = vMem->ReadFWord();
+		m_TTFInfos.m_GlobalBBox.upperBound.y = vMem->ReadFWord();
 		uint16_t macStyle = (uint16_t)vMem->ReadUShort(); // bitset
 		uint16_t lowestRecPPEM = (uint16_t)vMem->ReadUShort();
 		uint16_t fontDirectionHint = (int16_t)vMem->ReadShort();
@@ -1282,13 +1316,13 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		uint32_t len = tbl.length;
 
 		MemoryStream::Fixed version = vMem->ReadFixed();
-		m_Ascent = (int16_t)vMem->ReadShort();
-		m_Descent = (int16_t)vMem->ReadShort();
-		m_LineGap = (int16_t)vMem->ReadShort();
-		m_AdvanceWidthMax = (uint16_t)vMem->ReadUShort();
-		m_MinLeftSideBearing = (int16_t)vMem->ReadShort();
-		m_MinRightSideBearing = (int16_t)vMem->ReadShort();
-		m_XMaxExtent = (int16_t)vMem->ReadShort();
+		m_TTFInfos.m_Ascent = (int16_t)vMem->ReadShort();
+		m_TTFInfos.m_Descent = (int16_t)vMem->ReadShort();
+		m_TTFInfos.m_LineGap = (int16_t)vMem->ReadShort();
+		m_TTFInfos.m_AdvanceWidthMax = (uint16_t)vMem->ReadUShort();
+		m_TTFInfos.m_MinLeftSideBearing = (int16_t)vMem->ReadShort();
+		m_TTFInfos.m_MinRightSideBearing = (int16_t)vMem->ReadShort();
+		m_TTFInfos.m_XMaxExtent = (int16_t)vMem->ReadShort();
 		int16_t caretSlopeRise = (int16_t)vMem->ReadShort();
 		int16_t caretSlopeRun = (int16_t)vMem->ReadShort();
 		MemoryStream::FWord caretOffset = (int16_t)vMem->ReadFWord();
