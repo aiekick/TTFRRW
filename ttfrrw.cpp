@@ -429,8 +429,8 @@ void TTFRRW::TTFRRW::Clear(TTFRRW_ATOMIC_PARAMS)
 }
 
 bool TTFRRW::TTFRRW::OpenFontFile(
-	const std::string& vFontFilePathName, 
-	ttfrrwProcessingFlags vFlags, 
+	const std::string& vFontFilePathName,
+	ttfrrwProcessingFlags vFlags,
 	const char* vDebugInfos,
 	TTFRRW_ATOMIC_PARAMS)
 {
@@ -455,8 +455,8 @@ bool TTFRRW::TTFRRW::OpenFontFile(
 }
 
 bool TTFRRW::TTFRRW::OpenFontStream(
-	uint8_t* vStream, size_t vStreamSize, 
-	ttfrrwProcessingFlags vFlags, 
+	uint8_t* vStream, size_t vStreamSize,
+	ttfrrwProcessingFlags vFlags,
 	const char* vDebugInfos,
 	TTFRRW_ATOMIC_PARAMS)
 {
@@ -603,7 +603,7 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 				fread(bytes.data(), 1, fileSize, intput_file);
 				vInMem->Set(bytes.data(), bytes.size());
 			}
-			
+
 			fclose(intput_file);
 
 			res = true;
@@ -702,12 +702,12 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 
 				// on fait post avant glyf comme ca 
 				// on pourra mettre le nom directement dans le glyph
-				/*postOK = */Parse_POST_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
+				/*postOK = */Parse_POST_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.6
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				if (headOK && locaOK) // dependencies
-					glyfOK = Parse_GLYF_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);	
+					glyfOK = Parse_GLYF_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.7
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
@@ -778,7 +778,7 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 		std::string tagString = std::string((char*)tbl.tag); //-V112
 		m_Tables[tagString] = tbl;
 		LogInfos(vFlags, "Table %s found\n", tagString.c_str()); //-V111
-	
+
 		ATOMIC_OBJECTS_COUNT_INC;
 		ATOMIC_RETURN_IF_STOP_WORKING(false);
 	}
@@ -793,7 +793,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	if (m_Tables.find("cmap") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
-		
+
 		const auto tbl = m_Tables["cmap"];
 		vMem->SetPos(tbl.offset);
 		//uint32_t len = tbl.length;
@@ -815,10 +815,10 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			vMem->SetPos(tbl.offset + offset);
 
 			uint16_t format = (uint16_t)vMem->ReadUShort();
-			/*uint16_t length =*/ (uint16_t)vMem->ReadUShort();
-
+			
 			if (format == 0U)
 			{
+				/*uint16_t length =*/ (uint16_t)vMem->ReadUShort();
 				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				for (GlyphIndex glyphIndex = 0; glyphIndex < 256; glyphIndex++)
 				{
@@ -831,6 +831,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 			} //-V112
 			else if (format == 4U) //-V112
 			{
+				/*uint16_t length =*/ (uint16_t)vMem->ReadUShort();
 				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
 				uint16_t segCountX2 = (uint16_t)vMem->ReadUShort();
 				/*uint16_t searchRange =*/ (uint16_t)vMem->ReadUShort();
@@ -841,7 +842,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 				std::vector<uint16_t> startCode;
 				std::vector<int16_t> idDelta;
 				std::vector<uint16_t> idRangeOffset;
-				
+
 				int segCount = segCountX2 / 2;
 				for (int i = 0; i < segCount; i++)
 				{
@@ -929,6 +930,58 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 						{
 							//notdef;
 						}
+					}
+				}
+			}
+			else if (format == 6U)
+			{
+				/*uint16_t length =*/ (uint16_t)vMem->ReadUShort();
+				/*uint16_t language =*/ (uint16_t)vMem->ReadUShort();
+				uint16_t firstCode = (uint16_t)vMem->ReadUShort();
+				uint16_t entryCount = (uint16_t)vMem->ReadUShort();
+				for (GlyphIndex glyphIndex = 0; glyphIndex < entryCount; glyphIndex++)
+				{
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+					uint16_t codePoint = (uint16_t)vMem->ReadUShort();
+					m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
+					m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
+				}
+			}
+			else if (format == 12)
+			{
+				/*uint16_t reserved =*/ (uint16_t)vMem->ReadUShort();
+				/*uint32_t length =*/ (uint32_t)vMem->ReadULong();
+				/*uint32_t language =*/ (uint32_t)vMem->ReadULong();
+				uint32_t nGroups = (uint32_t)vMem->ReadULong();
+				
+				for (uint32_t groupID = 0; groupID < nGroups; groupID++)
+				{
+					ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+					uint32_t startCharCode = (uint32_t)vMem->ReadULong();
+					uint32_t endCharCode = (uint32_t)vMem->ReadULong();
+					uint32_t startGlyphID = (uint32_t)vMem->ReadULong();
+
+					uint32_t count = endCharCode - startCharCode;
+					if (count)
+					{
+						for (uint32_t charCodeID = 0; charCodeID < count; charCodeID++)
+						{
+							ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+							CodePoint codePoint = startCharCode + charCodeID;
+							GlyphIndex glyphIndex = startGlyphID + charCodeID;
+							m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
+							m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
+						}
+					}
+					else
+					{
+						CodePoint codePoint = startCharCode;
+						GlyphIndex glyphIndex = startGlyphID;
+						m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
+						m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
 					}
 				}
 			}
@@ -1155,7 +1208,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 	if (vMem)
 	{
 		m_TTFProfiler.simpleGlyfProfiler.start();
-		
+
 		std::vector<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
 		size_t instructionLength;
 		std::vector<uint8_t> instructions;
@@ -1186,7 +1239,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 				for (size_t instructionID = 0; instructionID < instructionLength; instructionID++)
 					instructions[instructionID] = (uint8_t)vMem->ReadByte();
 			}
-			
+
 			const int32_t SimpleFlagOnCurve = 1;
 			const int32_t SimpleFlagOnXShort = 1 << 1;
 			const int32_t SimpleFlagOnYShort = 1 << 2;
@@ -1298,7 +1351,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 					contour->m_Points[p].y = (int32_t)yCoordinates[endPtsOfContours[contourID] + p];
 					contour->m_OnCurve[p] = onCurves[endPtsOfContours[contourID] + p];
 
-				//	LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+					//	LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
 				}
 			}
 		}
