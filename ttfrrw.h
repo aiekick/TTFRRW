@@ -397,7 +397,7 @@ namespace TTFRRW
 	};
 
 	///////////////////////////////////////////////////////////////////////
-	///// CONTOUR /////////////////////////////////////////////////////////
+	///// GLYPH ///////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
 	class Contour
@@ -407,20 +407,21 @@ namespace TTFRRW
 		std::vector<bool> m_OnCurve;
 
 	public:
-		Contour();
-		~Contour();
-
 		bool IsValid()
 		{
 			return !m_Points.empty() && !m_OnCurve.empty();
 		}
 	};
 
-	///////////////////////////////////////////////////////////////////////
-	///// GLYPH ///////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////
+	class ComposedGlyph
+	{
+	public:
+		fvec2 m_Translation; // if composite
+		fvec2 m_Scale; // if composite
+		GlyphIndex m_GlyphIndex = 0;
+	};
 
-	class BaseGlyph
+	class Glyph
 	{
 	public:
 		std::vector<Contour> m_Contours;
@@ -429,9 +430,15 @@ namespace TTFRRW
 		int32_t m_LeftSideBearing = 0;
 		int32_t m_RightSideBearing = 0;
 		std::string m_Name;
-		fvec4 m_Color = 1.0f; // color if is a layer
-		bool m_IsLayer = false; // layer
 		bool m_IsSimple = true; // simple or composite
+
+		// layer
+		fvec4 m_Color = 1.0f; // color if is a layer
+		PaletteIndex m_PaletteIndex = 0; // palette if is a layer
+		bool m_IsLayer = false; // layer
+
+		std::vector<GlyphIndex> m_Layers; // color layers
+		std::vector<ComposedGlyph> m_ComposedGlyph; // for composite
 
 	public:
 		bool IsValid()
@@ -444,37 +451,6 @@ namespace TTFRRW
 			}
 			return false;
 		}
-	};
-
-	class AffineGlyph
-	{
-	public:
-		fvec2 m_Translation;
-		fvec2 m_Scale;
-		GlyphIndex glyphID = 0;
-
-	public:
-		AffineGlyph();
-		~AffineGlyph();
-	};
-
-	class LayerGlyph
-	{
-	public:
-		GlyphIndex glyphID = 0;
-		PaletteIndex paletteID = 0;
-		fvec4 color;
-	};
-
-	class Glyph : public BaseGlyph
-	{
-	public:
-		std::vector<AffineGlyph> m_AffineGlyphs; // composite
-		std::vector<LayerGlyph> m_LayerGlyphs;
-
-	public:
-		Glyph();
-		~Glyph();
 	};
 
 	///////////////////////////////////////////////////////////////////////
@@ -596,7 +572,7 @@ namespace TTFRRW
 		bool Parse_LOCA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_MAXP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, GlyphIndex vGlyphIndex, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);

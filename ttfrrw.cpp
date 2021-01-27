@@ -339,48 +339,6 @@ std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-TTFRRW::Contour::Contour()
-{
-
-}
-
-TTFRRW::Contour::~Contour()
-{
-
-}
-
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-
-TTFRRW::AffineGlyph::AffineGlyph()
-{
-
-}
-
-TTFRRW::AffineGlyph::~AffineGlyph()
-{
-
-}
-
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-
-TTFRRW::Glyph::Glyph()
-{
-
-}
-
-TTFRRW::Glyph::~Glyph()
-{
-
-}
-
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-
 #define ATOMIC_RETURN_IF_STOP_WORKING(v) if (vWorking) if (!vWorking->load()) return v;
 #define ATOMIC_PROGRESS_ADD(v) if (vProgress) vProgress->store(vProgress->load() + v)
 #define ATOMIC_OBJECTS_COUNT_INC if (vObjectCount) vObjectCount->store(vObjectCount->load() + 1U)
@@ -1171,7 +1129,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 				if (!(vFlags & TTFRRW_PROCESSING_FLAG_NO_GLYPH_PARSING))
 				{
-					auto g = Parse_Simple_Glyf(vMem, numberOfContours, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
+					auto g = Parse_Simple_Glyf(vMem, (GlyphIndex)glyphID, numberOfContours, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 					glyph.m_Contours = g.m_Contours;
 					glyph.m_AdvanceX = g.m_AdvanceX;
 					glyph.m_LeftSideBearing = g.m_LeftSideBearing;
@@ -1201,7 +1159,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex vGlyphIndex, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	Glyph glyph;
 
@@ -1221,13 +1179,12 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 		{
 			size_t countContours = (size_t)vCountContour;
 
-			endPtsOfContours.resize(countContours + 1);
-			endPtsOfContours[0] = 0U;
+			endPtsOfContours.resize(countContours);
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
 				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
-				endPtsOfContours[contourID + 1] = (uint16_t)vMem->ReadShort();
+				endPtsOfContours[contourID] = (uint16_t)vMem->ReadShort() + 1U;
 			}
 
 			instructionLength = (size_t)vMem->ReadUShort();
@@ -1247,89 +1204,88 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 			const int32_t SimpleFlagOnXRepeatSign = 1 << 4;
 			const int32_t SimpleFlagOnYRepeatSign = 1 << 5;
 
-			if (endPtsOfContours.size() > 1)
+			if (!endPtsOfContours.empty())
 			{
-				size_t countPoints = (size_t)endPtsOfContours[countContours] + 1; // always sup to 0 with the +1
-
-				xCoordinates.resize(countPoints);
-				yCoordinates.resize(countPoints);
-				onCurves.resize(countPoints);
-				flags.resize(countPoints);
-
-				uint32_t flag_repeat = 0;
-				int32_t flag = 0;
-				for (size_t pointID = 0; pointID < countPoints; pointID++)
+				size_t maxPoints = (size_t)endPtsOfContours[countContours - 1];
+				if (maxPoints)
 				{
-					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+					xCoordinates.resize(maxPoints);
+					yCoordinates.resize(maxPoints);
+					onCurves.resize(maxPoints);
+					flags.resize(maxPoints);
 
-					if (flag_repeat == 0)
+					uint32_t flag_repeat = 0;
+					int32_t flag = 0;
+					for (size_t pointID = 0; pointID < maxPoints; pointID++)
 					{
-						flag = vMem->ReadByte();
-						if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
+						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
+						if (flag_repeat == 0)
 						{
-							flag_repeat = vMem->ReadByte();
+							flag = vMem->ReadByte();
+							if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
+							{
+								flag_repeat = vMem->ReadByte();
+							}
+						}
+						else
+						{
+							flag_repeat--;
+						}
+
+						uint8_t u8Flag = (uint8_t)flag;
+						flags[pointID] = u8Flag;
+						onCurves[pointID] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
+					}
+
+					for (size_t pointID = 0; pointID < maxPoints; pointID++)
+					{
+						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
+						flag = flags[pointID];
+
+						if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
+						{
+							int16_t coord = (int16_t)vMem->ReadByte();
+							coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
+							xCoordinates[pointID] = coord;
+						}
+						else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
+						{
+							xCoordinates[pointID] = (int16_t)vMem->ReadShort();
+						}
+						if (pointID)
+						{
+							xCoordinates[pointID] += xCoordinates[pointID - 1U];
 						}
 					}
-					else
-					{
-						flag_repeat--;
-					}
 
-					uint8_t u8Flag = (uint8_t)flag;
-					flags[pointID] = u8Flag;
-					onCurves[pointID] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
-				}
-
-				for (size_t pointID = 0; pointID < countPoints; pointID++)
-				{
-					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
-
-					flag = flags[pointID];
-
-					if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
+					for (size_t pointID = 0; pointID < maxPoints; pointID++)
 					{
-						int16_t coord = (int16_t)vMem->ReadByte();
-						coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
-						xCoordinates[pointID] = coord;
-					}
-					else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
-					{
-						xCoordinates[pointID] = (int16_t)vMem->ReadShort();
-					}
-					if (pointID)
-					{
-						xCoordinates[pointID] += xCoordinates[pointID - 1U];
-					}
-				}
+						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
-				for (size_t pointID = 0; pointID < countPoints; pointID++)
-				{
-					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+						flag = flags[pointID];
 
-					flag = flags[pointID];
-
-					if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
-					{
-						int16_t coord = (int16_t)vMem->ReadByte();
-						coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
-						yCoordinates[pointID] = coord;
-					}
-					else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
-					{
-						yCoordinates[pointID] = (int16_t)vMem->ReadShort();
-					}
-					if (pointID)
-					{
-						yCoordinates[pointID] += yCoordinates[pointID - 1U];
+						if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
+						{
+							int16_t coord = (int16_t)vMem->ReadByte();
+							coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
+							yCoordinates[pointID] = coord;
+						}
+						else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
+						{
+							yCoordinates[pointID] = (int16_t)vMem->ReadShort();
+						}
+						if (pointID)
+						{
+							yCoordinates[pointID] += yCoordinates[pointID - 1U];
+						}
 					}
 				}
 			}
 
 			// convert in final glyph
-
-			//endPtsOfContours.insert(endPtsOfContours.begin(), 0);
-			//LogInfos(vFlags, "Contours : %u\n", (uint32_t)countContours);
-
+			size_t lastCount = 0;
 			glyph.m_Contours.resize(countContours);
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
@@ -1337,22 +1293,27 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, int16_t vCou
 
 				auto contour = &glyph.m_Contours[contourID];
 
-				const size_t pmax = endPtsOfContours[contourID + 1] - endPtsOfContours[contourID];
-				//LogInfos(vFlags, "Contour %u, Count Points : %u\n", (uint32_t)contourID, (uint32_t)pmax);
-
-				contour->m_Points.resize(pmax);
-				contour->m_OnCurve.resize(pmax);
-
-				for (size_t p = 0; p < pmax; p++)
+				const size_t pmax = endPtsOfContours[contourID] - lastCount;
+				if (pmax)
 				{
-					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+					contour->m_Points.resize(pmax);
+					contour->m_OnCurve.resize(pmax);
 
-					contour->m_Points[p].x = (int32_t)xCoordinates[endPtsOfContours[contourID] + p];
-					contour->m_Points[p].y = (int32_t)yCoordinates[endPtsOfContours[contourID] + p];
-					contour->m_OnCurve[p] = onCurves[endPtsOfContours[contourID] + p];
+					for (size_t p = 0; p < pmax; p++)
+					{
+						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
-					//	LogInfos(vFlags, "Point %u %s : %i,%i\n", (uint32_t)p, (oc ? "on curve" : ""), pt.x, pt.y);
+						contour->m_Points[p].x = (int32_t)xCoordinates[lastCount + p];
+						contour->m_Points[p].y = (int32_t)yCoordinates[lastCount + p];
+						contour->m_OnCurve[p] = onCurves[lastCount + p];
+					}
 				}
+				else
+				{
+					LogError(vFlags, "ERR : Point count is null in Contour %u of glyph %u\n", (uint32_t)contourID, vGlyphIndex);
+				}
+
+				lastCount = endPtsOfContours[contourID];
 			}
 		}
 
@@ -1600,20 +1561,21 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 					ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 					vMem->SetPos(tbl.offset + (size_t)layerRecordsOffset + ((size_t)firstLayerIndex + layerID) * 4U); //-V112
-					LayerGlyph lg;
-					lg.glyphID = (uint16_t)vMem->ReadUShort();
-					lg.paletteID = (uint16_t)vMem->ReadUShort();
+					uint16_t glyphID = (uint16_t)vMem->ReadUShort();
+					uint16_t paletteID = (uint16_t)vMem->ReadUShort();
+
 					// if CPAL would have been parsed before, i could directly write the palette color
 					// we not select the palette (its is not defiend by font but by app, so by design)
 					if (!m_Palettes.empty())
 					{
-						if (lg.paletteID < m_Palettes[0].size())
+						if (paletteID < m_Palettes[0].size())
 						{
-							lg.color = m_Palettes[0][lg.paletteID];
-							if (lg.glyphID < m_Glyphs.size())
+							auto color = m_Palettes[0][paletteID];
+							if (glyphID < m_Glyphs.size())
 							{
-								m_Glyphs[lg.glyphID].m_Color = lg.color;
-								m_Glyphs[lg.glyphID].m_IsLayer = true;
+								m_Glyphs[glyphID].m_Color = color;
+								m_Glyphs[glyphID].m_PaletteIndex = paletteID;
+								m_Glyphs[glyphID].m_IsLayer = true;
 							}
 							else
 								LogError(vFlags, "ERR : COLR Layer.GlyphId >= than glyph count\n");
@@ -1621,7 +1583,8 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 						else
 							LogError(vFlags, "ERR : COLR paletteID > than palette entry count\n");
 					}
-					m_Glyphs[baseGlyphID].m_LayerGlyphs.push_back(lg);
+
+					m_Glyphs[baseGlyphID].m_Layers.push_back(glyphID);
 				}
 			}
 		}
