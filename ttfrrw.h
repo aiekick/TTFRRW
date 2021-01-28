@@ -407,9 +407,24 @@ namespace TTFRRW
 		std::vector<bool> m_OnCurve;
 
 	public:
-		bool IsValid()
+		bool IsValid() { return !m_Points.empty() && !m_OnCurve.empty(); }
+		bool IsOnCurve(size_t vIdx)
 		{
-			return !m_Points.empty() && !m_OnCurve.empty();
+			size_t count = m_OnCurve.size();
+			if (count)
+				return m_OnCurve[vIdx % count];
+			return false;
+		}
+		fvec2 GetCoords(size_t vIdx, fvec2 vScale, fvec2 vTranslation)
+		{
+			size_t count = m_Points.size();
+			if (count)
+			{
+				const auto p = m_Points[vIdx % count];
+				return fvec2((float)p.x, (float)p.y) * vScale + vTranslation;
+			}
+				
+			return fvec2();
 		}
 	};
 
