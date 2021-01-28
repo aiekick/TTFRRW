@@ -499,6 +499,7 @@ namespace TTFRRW
 		TTFProfiler m_TTFProfiler;
 		bool m_IsValid_For_Rasterize = false;
 		bool m_IsValid_For_GlyphTreatment = false;
+		std::string m_FontType;
 
 	private: // must be defined by user
 		std::vector<Glyph> m_Glyphs; // bd des glyphs
