@@ -523,16 +523,8 @@ namespace TTFRRW
 		std::map<CodePoint, GlyphIndex> m_CodePoint_To_GlyphIndex;
 		// 1 glyphIndex => can be many codePoint's
 		std::map<GlyphIndex, std::set<CodePoint>> m_GlyphIndex_To_CodePoints;
-
-		std::string m_FontCopyright;
-		std::string m_FontFamily;
-		std::string m_FontSubFamily;
-		std::string m_FontFullName;
-		std::string m_FontTrademark;
-		std::string m_FontDesignerName;
-		std::string m_FontManufacturerName;
-		std::string m_UrlFontDesigner;
-		std::string m_UrlFontVendor;
+		// nameId => names
+		std::set<std::pair<uint16_t, std::string>> m_Names; // bd des noms depuis la table NAME
 
 	public:
 		TTFRRW();
@@ -594,6 +586,7 @@ namespace TTFRRW
 		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_HHEA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_HMTX_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_NAME_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
 
 	//////////////////////////////////////////////////////////////////////////////
 	//// WRITE TABLE /////////////////////////////////////////////////////////////

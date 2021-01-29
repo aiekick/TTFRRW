@@ -368,17 +368,7 @@ void TTFRRW::TTFRRW::Clear(TTFRRW_ATOMIC_PARAMS)
 	m_GlyphNames.clear();
 	m_CodePoint_To_GlyphIndex.clear();
 	m_GlyphIndex_To_CodePoints.clear();
-
-	m_FontCopyright.clear();
-	m_FontFamily.clear();
-	m_FontSubFamily.clear();
-	m_FontFullName.clear();
-	m_FontTrademark.clear();
-	m_FontDesignerName.clear();
-	m_FontManufacturerName.clear();
-	m_UrlFontDesigner.clear();
-	m_UrlFontVendor.clear();
-
+	m_Names.clear();
 	m_Tables.clear();
 	m_IndexToLocFormat = 0;
 	m_GlyphsOffsets.clear();
@@ -635,18 +625,14 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 			if (maxpOK) // dependencies
 			{
 				/*bool cmapOK =*/ Parse_CMAP_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.01f);	// 0.1
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 				const bool headOK = Parse_HEAD_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.02f);	// 0.2
-				ATOMIC_RETURN_IF_STOP_WORKING(false);
-				//ATOMIC_PROGRESS_ADD(0.03f);	// 0.3
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 				const bool locaOK = Parse_LOCA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.04f);	// 0.4
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 				const bool hheaOK = Parse_HHEA_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.5
+				ATOMIC_RETURN_IF_STOP_WORKING(false);
+				const bool nameOK = Parse_NAME_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 				bool glyfOK = false;
 				//bool postOK = false;
@@ -657,12 +643,10 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 				// on fait post avant glyf comme ca 
 				// on pourra mettre le nom directement dans le glyph
 				/*postOK = */Parse_POST_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.6
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				if (headOK && locaOK) // dependencies
 					glyfOK = Parse_GLYF_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.7
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				// on fait ca apres glyph comme ca on pourra remplir
@@ -671,16 +655,13 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 				{
 					hmtxOK = Parse_HMTX_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 				}
-				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.8
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				cpalOK = Parse_CPAL_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.1f);	// 0.9
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				if (cpalOK) // dependencies
 					colrOK = Parse_COLR_Table(vMem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
-				//ATOMIC_PROGRESS_ADD(0.1f);	// 1.0
 				ATOMIC_RETURN_IF_STOP_WORKING(false);
 
 				// tres permissif, le minimum est d'avoir des glyphs
@@ -1716,6 +1697,54 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	else
 	{
 		LogError(vFlags, "ERR : HMTX Table not found\n");
+	}
+
+	return false;
+}
+
+bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+{
+	if (m_Tables.find("name") != m_Tables.end())
+	{
+		ATOMIC_OBJECTS_COUNT_INC;
+		ATOMIC_RETURN_IF_STOP_WORKING(false);
+
+		auto tbl = m_Tables["name"];
+		vMem->SetPos(tbl.offset);
+		//uint32_t len = tbl.length;
+
+		const uint16_t version = (uint16_t)vMem->ReadUShort();
+		if (version == 0)
+		{
+			const uint16_t count = (uint16_t)vMem->ReadUShort();
+			const uint16_t storageOffset = (uint16_t)vMem->ReadUShort();
+		
+			for (size_t i = 0; i < count; i++)
+			{
+				vMem->SetPos(tbl.offset + 6U + 12U * i);
+
+				// 12 bytes :
+				const uint16_t platformID = (uint16_t)vMem->ReadUShort();	// 2 bytes
+				const uint16_t encodingID = (uint16_t)vMem->ReadUShort();	// 2 bytes
+				const uint16_t languageID = (uint16_t)vMem->ReadUShort();	// 2 bytes
+				const uint16_t nameID = (uint16_t)vMem->ReadUShort();		// 2 bytes
+				const uint16_t length = (uint16_t)vMem->ReadUShort();		// 2 bytes
+				const uint16_t stringOffset = (uint16_t)vMem->ReadUShort();	// 2 bytes
+
+				vMem->SetPos(tbl.offset + storageOffset + stringOffset);
+				const std::string name = vMem->ReadString(length);
+				LogInfos(vFlags, "NameID %u => %s", nameID, name.c_str());
+				m_Names.emplace(std::pair<uint16_t, std::string>(nameID, name));
+			}
+		}
+		else
+		{
+			LogError(vFlags, "ERR : NAME Format %u not supported for the moment\n", version);
+		}
+	}
+	else
+	{
+		LogError(vFlags, "ERR : NAME Table not found\n");
 	}
 
 	return false;
