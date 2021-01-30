@@ -9,7 +9,10 @@
 #include <sys/stat.h>
 #include <cerrno>
 
+#include <3rdparty/tracy/Tracy.hpp>
+
 #define VERBOSE_MODE
+//#define USE_SIMPLE_PROFILER
 
 ///////////////////////////////////////////////////////////////////////
 //// LOGGING //////////////////////////////////////////////////////////
@@ -17,6 +20,8 @@
 
 inline static void LogInfos(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fmt, ...)
 {
+	ZoneScoped;
+
 #ifdef VERBOSE_MODE
 	if (!(vFlags & TTFRRW::TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS))
 	{
@@ -30,6 +35,8 @@ inline static void LogInfos(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fm
 
 inline static void LogError(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fmt, ...)
 {
+	ZoneScoped;
+
 #ifdef VERBOSE_MODE
 	if (!(vFlags & TTFRRW::TTFRRW_PROCESSING_FLAG_NO_ERRORS))
 	{
@@ -44,6 +51,8 @@ inline static void LogError(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fm
 ///////////////////////////////////////////////////////////////////////
 //// PROFIER //////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
+
+#ifdef USE_SIMPLE_PROFILER
 
 void TTFRRW::cProfiler::start()
 {
@@ -117,23 +126,27 @@ void TTFRRW::cProfiler::erasePrint(ttfrrwProcessingFlags vFlags, const char* par
 	}
 }
 
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
 TTFRRW::MemoryStream::MemoryStream()
 {
-
+	ZoneScoped;
 }
 
 TTFRRW::MemoryStream::MemoryStream(uint8_t* vDatas, size_t vSize)
 {
+	ZoneScoped;
+
 	Set(vDatas, vSize);
 }
 
 TTFRRW::MemoryStream::~MemoryStream()
 {
-
+	ZoneScoped;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -142,6 +155,8 @@ TTFRRW::MemoryStream::~MemoryStream()
 
 void TTFRRW::MemoryStream::WriteByte(uint8_t b)
 {
+	ZoneScoped;
+
 	m_Datas.push_back(b);
 }
 
@@ -149,12 +164,16 @@ void TTFRRW::MemoryStream::WriteBytes(std::vector<uint8_t>* buffer)
 {
 	if (buffer)
 	{
+		ZoneScoped;
+
 		m_Datas.insert(m_Datas.end(), buffer->begin(), buffer->end());
 	}
 }
 
 void TTFRRW::MemoryStream::WriteInt(int32_t i)
 {
+	ZoneScoped;
+
 	WriteByte((uint8_t)((i >> 24) & 0xff));
 	WriteByte((uint8_t)((i >> 16) & 0xff));
 	WriteByte((uint8_t)((i >> 8) & 0xff));
@@ -163,22 +182,30 @@ void TTFRRW::MemoryStream::WriteInt(int32_t i)
 
 void TTFRRW::MemoryStream::WriteUShort(int32_t us)
 {
+	ZoneScoped;
+
 	WriteByte((uint8_t)((us >> 8) & 0xff));
 	WriteByte((uint8_t)(us & 0xff));
 }
 
 void TTFRRW::MemoryStream::WriteFWord(int32_t us)
 {
+	ZoneScoped;
+
 	WriteUShort(us);
 }
 
 void TTFRRW::MemoryStream::WriteShort(int32_t s)
 {
+	ZoneScoped;
+
 	WriteUShort(s);
 }
 
 void TTFRRW::MemoryStream::WriteUInt24(int32_t ui)
 {
+	ZoneScoped;
+
 	WriteByte((uint8_t)(ui >> 16) & 0xff);
 	WriteByte((uint8_t)(ui >> 8) & 0xff);
 	WriteByte((uint8_t)ui & 0xff);
@@ -186,6 +213,8 @@ void TTFRRW::MemoryStream::WriteUInt24(int32_t ui)
 
 void TTFRRW::MemoryStream::WriteULong(int64_t ul)
 {
+	ZoneScoped;
+
 	WriteByte((uint8_t)((ul >> 24) & 0xff));
 	WriteByte((uint8_t)((ul >> 16) & 0xff));
 	WriteByte((uint8_t)((ul >> 8) & 0xff));
@@ -194,11 +223,15 @@ void TTFRRW::MemoryStream::WriteULong(int64_t ul)
 
 void TTFRRW::MemoryStream::WriteLong(int64_t l)
 {
+	ZoneScoped;
+
 	WriteULong(l);
 }
 
 void TTFRRW::MemoryStream::WriteFixed(MemoryStream::Fixed f)
 {
+	ZoneScoped;
+
 	WriteByte((uint8_t)((f.high >> 24) & 0xff));
 	WriteByte((uint8_t)((f.high >> 16) & 0xff));
 	WriteByte((uint8_t)((f.low >> 8) & 0xff));
@@ -207,37 +240,51 @@ void TTFRRW::MemoryStream::WriteFixed(MemoryStream::Fixed f)
 
 void TTFRRW::MemoryStream::WriteF2DOT14(MemoryStream::F2DOT14 f)
 {
+	ZoneScoped;
+
 	WriteShort(f.value);
 }
 
 void TTFRRW::MemoryStream::WriteDateTime(longDateTime date)
 {
+	ZoneScoped;
+
 	WriteULong((date >> 32) & 0xffffffff); //-V112
 	WriteULong(date & 0xffffffff); //-V112
 }
 
 uint8_t* TTFRRW::MemoryStream::Get()
 {
+	ZoneScoped;
+
 	return m_Datas.data();
 }
 
 size_t TTFRRW::MemoryStream::Size()
 {
+	ZoneScoped;
+
 	return m_Datas.size();
 }
 
 size_t TTFRRW::MemoryStream::GetPos()
 {
+	ZoneScoped;
+
 	return m_ReadPos;
 }
 
 void TTFRRW::MemoryStream::SetPos(size_t vPos)
 {
+	ZoneScoped;
+
 	m_ReadPos = vPos;
 }
 
 void TTFRRW::MemoryStream::Set(uint8_t* vDatas, size_t vSize)
 {
+	ZoneScoped;
+
 	if (vDatas && vSize)
 	{
 		m_Datas.clear();
@@ -253,6 +300,8 @@ void TTFRRW::MemoryStream::Set(uint8_t* vDatas, size_t vSize)
 
 uint8_t TTFRRW::MemoryStream::ReadByte(size_t vOffset)
 {
+	ZoneScoped;
+
 	if (vOffset + m_ReadPos < m_Datas.size())
 		return m_Datas[vOffset + m_ReadPos++];
 	return 0;
@@ -260,42 +309,58 @@ uint8_t TTFRRW::MemoryStream::ReadByte(size_t vOffset)
 
 int32_t TTFRRW::MemoryStream::ReadUShort(size_t vOffset)
 {
+	ZoneScoped;
+
 	return 0xffff & (ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
 int32_t TTFRRW::MemoryStream::ReadShort(size_t vOffset)
 {
+	ZoneScoped;
+
 	return ((ReadByte(vOffset) << 8 | ReadByte(vOffset)) << 16) >> 16;
 }
 
 TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord(size_t vOffset)
 {
+	ZoneScoped;
+
 	return (int16_t)ReadShort(vOffset);
 }
 
 TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord(size_t vOffset)
 {
+	ZoneScoped;
+
 	return (uint16_t)ReadUShort(vOffset);
 }
 
 uint32_t TTFRRW::MemoryStream::ReadUInt24(size_t vOffset)
 {
+	ZoneScoped;
+
 	return 0xffffff & (ReadByte(vOffset) << 16 | ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
 uint64_t TTFRRW::MemoryStream::ReadULong(size_t vOffset)
 {
+	ZoneScoped;
+
 	return 0xffffffffL & ReadLong(vOffset); //-V112
 }
 
 uint32_t TTFRRW::MemoryStream::ReadULongAsInt(size_t vOffset)
 {
+	ZoneScoped;
+
 	const int64_t ulong = ReadULong(vOffset);
 	return ((int32_t)ulong) & ~0x80000000; //-V112
 }
 
 int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
 {
+	ZoneScoped;
+
 	return
 		ReadByte(vOffset) << 24 |
 		ReadByte(vOffset) << 16 |
@@ -305,6 +370,8 @@ int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
 
 TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(size_t vOffset)
 {
+	ZoneScoped;
+
 	Fixed res;
 	const int32_t f = ReadLong(vOffset);
 	res.high = (int16_t)((f >> 16) & 0xff);
@@ -314,6 +381,8 @@ TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(size_t vOffset)
 
 TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(size_t vOffset)
 {
+	ZoneScoped;
+
 	F2DOT14 res;
 	res.value = (int16_t)ReadShort(vOffset);
 	return res;
@@ -321,6 +390,8 @@ TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(size_t vOffset)
 
 TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(size_t vOffset)
 {
+	ZoneScoped;
+
 	return (int64_t)ReadULong(vOffset) << 32 | ReadULong(vOffset); //-V112
 }
 
@@ -328,6 +399,8 @@ std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
 {
 	if (vOffset + m_ReadPos + vLen < m_Datas.size())
 	{
+		ZoneScoped;
+
 		const std::string res = std::string((char*)(m_Datas.data() + vOffset + m_ReadPos), vLen);
 		m_ReadPos += vLen;
 		return res;
@@ -345,18 +418,24 @@ std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
 
 TTFRRW::TTFRRW::TTFRRW()
 {
-
+	ZoneScoped;
 }
 
 TTFRRW::TTFRRW::~TTFRRW()
 {
-
+	ZoneScoped;
 }
 
 void TTFRRW::TTFRRW::Clear(TTFRRW_ATOMIC_PARAMS)
 {
-	vProgress->store(0.0f);
-	vObjectCount->store(0U);
+	ZoneScoped;
+
+	(void)vWorking;
+	if (vProgress && vObjectCount)
+	{
+		vProgress->store(0.0f);
+		vObjectCount->store(0U);
+	}
 
 	m_TTFInfos = TTFInfos();
 	m_TTFProfiler.Reset();
@@ -382,11 +461,13 @@ bool TTFRRW::TTFRRW::OpenFontFile(
 	const char* vDebugInfos,
 	TTFRRW_ATOMIC_PARAMS)
 {
-	bool res = false;
+	ZoneScoped;
 
+	bool res = false;
+#ifdef USE_SIMPLE_PROFILER
 	cProfiler mainProfiler;
 	mainProfiler.start();
-
+#endif
 	MemoryStream mem;
 
 	int error = 0;
@@ -395,10 +476,12 @@ bool TTFRRW::TTFRRW::OpenFontFile(
 	{
 		res = Parse_Font_File(&mem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 	}
-
+#ifdef USE_SIMPLE_PROFILER
 	mainProfiler.end();
 	mainProfiler.print(vFlags, "OpenFontFile ", vDebugInfos);
-
+#else
+	(void)vDebugInfos;
+#endif
 	return res;
 }
 
@@ -408,21 +491,25 @@ bool TTFRRW::TTFRRW::OpenFontStream(
 	const char* vDebugInfos,
 	TTFRRW_ATOMIC_PARAMS)
 {
-	bool res = false;
+	ZoneScoped;
 
+	bool res = false;
+#ifdef USE_SIMPLE_PROFILER
 	cProfiler mainProfiler;
 	mainProfiler.start();
-
+#endif
 	if (vStream && vStreamSize)
 	{
 		MemoryStream mem;
 		mem.Set(vStream, vStreamSize);
 		res = Parse_Font_File(&mem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 	}
-
+#ifdef USE_SIMPLE_PROFILER
 	mainProfiler.end();
 	mainProfiler.print(vFlags, "OpenFontStream ", vDebugInfos);
-
+#else
+	(void)vDebugInfos;
+#endif
 	return res;
 }
 
@@ -430,6 +517,8 @@ std::vector<TTFRRW::Glyph>* TTFRRW::TTFRRW::GetGlyphs()
 {
 	if (!m_Glyphs.empty())
 	{
+		ZoneScoped;
+
 		return &m_Glyphs;
 	}
 
@@ -442,6 +531,8 @@ TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIn
 	{
 		if (vGlyphIndex < m_Glyphs.size())
 		{
+			ZoneScoped;
+
 			return &m_Glyphs[vGlyphIndex];
 		}
 	}
@@ -451,6 +542,8 @@ TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIn
 
 bool TTFRRW::TTFRRW::WriteFontFile(const std::string& vFontFilePathName)
 {
+	ZoneScoped;
+
 	(void)vFontFilePathName;
 
 	return false;
@@ -462,12 +555,16 @@ bool TTFRRW::TTFRRW::WriteFontFile(const std::string& vFontFilePathName)
 
 void TTFRRW::TTFRRW::AddGlyph(const Glyph& vGlyph, const CodePoint& vCodePoint)
 {
+	ZoneScoped;
+
 	(void)vGlyph;
 	(void)vCodePoint;
 }
 
 TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithCodePoint(const CodePoint& vCodePoint)
 {
+	ZoneScoped;
+
 	(void)vCodePoint;
 
 	return nullptr;
@@ -475,6 +572,8 @@ TTFRRW::Glyph* TTFRRW::TTFRRW::GetGlyphWithCodePoint(const CodePoint& vCodePoint
 
 TTFRRW::GlyphIndex TTFRRW::TTFRRW::GetGlyphIndexFromCodePoint(const CodePoint& vCodePoint)
 {
+	ZoneScoped;
+
 	if (m_CodePoint_To_GlyphIndex.find(vCodePoint) != m_CodePoint_To_GlyphIndex.end())
 	{
 		return m_CodePoint_To_GlyphIndex[vCodePoint];
@@ -485,6 +584,8 @@ TTFRRW::GlyphIndex TTFRRW::TTFRRW::GetGlyphIndexFromCodePoint(const CodePoint& v
 
 std::set<TTFRRW::CodePoint>* TTFRRW::TTFRRW::GetCodePointsFromGlyphIndex(const GlyphIndex& vGlyphIndex)
 {
+	ZoneScoped;
+
 	if (m_GlyphIndex_To_CodePoints.find(vGlyphIndex) != m_GlyphIndex_To_CodePoints.end())
 	{
 		return &m_GlyphIndex_To_CodePoints[vGlyphIndex];
@@ -495,16 +596,22 @@ std::set<TTFRRW::CodePoint>* TTFRRW::TTFRRW::GetCodePointsFromGlyphIndex(const G
 
 TTFRRW::TTFInfos TTFRRW::TTFRRW::GetFontInfos()
 {
+	ZoneScoped;
+
 	return m_TTFInfos;
 }
 
 bool TTFRRW::TTFRRW::IsValidForRasterize()
 {
+	ZoneScoped;
+
 	return m_IsValid_For_Rasterize;
 }
 
 bool TTFRRW::TTFRRW::IsValidFotGlyppTreatment()
 {
+	ZoneScoped;
+
 	return m_IsValid_For_GlyphTreatment;
 }
 
@@ -517,6 +624,8 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 	MemoryStream* vInMem,
 	int* vError)
 {
+	ZoneScoped;
+
 	bool res = false;
 
 	if (vInMem)
@@ -562,6 +671,8 @@ bool TTFRRW::TTFRRW::WriteMemoryToFile(
 	MemoryStream* vOutMem,
 	int* vError)
 {
+	ZoneScoped;
+
 	bool res = false;
 
 	if (vOutMem)
@@ -595,6 +706,8 @@ bool TTFRRW::TTFRRW::WriteMemoryToFile(
 
 bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	ZoneScoped;
+
 	// la loca contient la position des glyphs et leur taille
 	// la maxp contient le nombre de glyphs
 	// la cmap contient la correspondance entre les codepoint et les index de glyphs
@@ -685,6 +798,10 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 
 bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	// header
 	const std::string scalerType = vMem->ReadString(4); //-V112
 	if (scalerType[0] == 1)  m_FontType = "TrueType 1"; // TrueType 1
@@ -723,6 +840,10 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 
 bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (!vMem) return false;
 
 	if (m_Tables.find("cmap") != m_Tables.end())
@@ -905,16 +1026,16 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 						{
 							ATOMIC_RETURN_IF_STOP_WORKING(false);
 
-							const CodePoint codePoint = startCharCode + charCodeID;
-							const GlyphIndex glyphIndex = startGlyphID + charCodeID;
+							const CodePoint codePoint = (CodePoint)(startCharCode + charCodeID);
+							const GlyphIndex glyphIndex = (GlyphIndex)(startGlyphID + charCodeID);
 							m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
 							m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
 						}
 					}
 					else
 					{
-						const CodePoint codePoint = startCharCode;
-						const GlyphIndex glyphIndex = startGlyphID;
+						const CodePoint codePoint = (CodePoint)startCharCode;
+						const GlyphIndex glyphIndex = (GlyphIndex)startGlyphID;
 						m_CodePoint_To_GlyphIndex[codePoint] = glyphIndex;
 						m_GlyphIndex_To_CodePoints[glyphIndex].emplace(codePoint);
 					}
@@ -938,6 +1059,10 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("head") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -977,6 +1102,10 @@ bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("maxp") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1014,6 +1143,10 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("loca") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1058,6 +1191,10 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("glyf") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1071,7 +1208,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 		for (size_t glyphID = 0; glyphID < (size_t)m_TTFInfos.m_GlyphCount; glyphID++)
 		{
 			if (vProgress)
-				vProgress->store((double)glyphID / (double)m_TTFInfos.m_GlyphCount);
+				vProgress->store((float)glyphID / (float)m_TTFInfos.m_GlyphCount);
 
 			ATOMIC_OBJECTS_COUNT_INC;
 			ATOMIC_RETURN_IF_STOP_WORKING(false);
@@ -1138,12 +1275,18 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex vGlyphIndex, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+	(void)vObjectCount;
+
+	ZoneScoped;
+
 	Glyph glyph;
 
 	if (vMem)
 	{
+#ifdef USE_SIMPLE_PROFILER
 		m_TTFProfiler.simpleGlyfProfiler.start();
-
+#endif
 		std::vector<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
 		size_t instructionLength;
 		std::vector<uint8_t> instructions;
@@ -1293,8 +1436,9 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex v
 				lastCount = endPtsOfContours[contourID];
 			}
 		}
-
+#ifdef USE_SIMPLE_PROFILER
 		m_TTFProfiler.simpleGlyfProfiler.end();
+#endif
 	}
 
 	return glyph;
@@ -1329,6 +1473,10 @@ static const char* standardMacNames[STANDARD_MAC_NAMES_COUNT] =
 
 bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("post") != m_Tables.end())
 	{
 		ATOMIC_RETURN_IF_STOP_WORKING(false);
@@ -1437,6 +1585,10 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("CPAL") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1506,6 +1658,10 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("COLR") != m_Tables.end())
 	{
 		ATOMIC_RETURN_IF_STOP_WORKING(false);
@@ -1579,6 +1735,10 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("hhea") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1620,6 +1780,10 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("hmtx") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1705,6 +1869,10 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
 {
+	(void)vProgress;
+
+	ZoneScoped;
+
 	if (m_Tables.find("name") != m_Tables.end())
 	{
 		ATOMIC_OBJECTS_COUNT_INC;
@@ -1757,45 +1925,63 @@ bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 
 bool TTFRRW::TTFRRW::Assemble_GLYF_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_LOCA_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_MAXP_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_CMAP_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_HMTX_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_HHEA_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_POST_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_NAME_Table()
 {
+	ZoneScoped;
+
 	return false;
 }
 
 bool TTFRRW::TTFRRW::Assemble_HEAD_Table()
 {
+	ZoneScoped;
+
 	return false;
 }

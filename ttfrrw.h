@@ -35,6 +35,7 @@ namespace TTFRRW
 	///// PROFILER ////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 
+#ifdef USE_SIMPLE_PROFILER
 	class cProfiler
 	{
 	private:
@@ -52,6 +53,7 @@ namespace TTFRRW
 		void print(ttfrrwProcessingFlags vFlags, const char* parent, const char* label);
 		void erasePrint(ttfrrwProcessingFlags vFlags, const char* parent, const char* label); // clear console then print
 	};
+#endif
 
 	///////////////////////////////////////////////////////////////////////
 	///// COMMON///////////////////////////////////////////////////////////
@@ -490,17 +492,24 @@ namespace TTFRRW
 	class TTFProfiler
 	{
 	public:
+#ifdef USE_SIMPLE_PROFILER
 		cProfiler simpleGlyfProfiler;
-
+#endif
 	public:
 		void Reset()
 		{
+#ifdef USE_SIMPLE_PROFILER
 			simpleGlyfProfiler.reset();
+#endif
 		}
 
 		void Print(ttfrrwProcessingFlags vFlags)
 		{
+#ifdef USE_SIMPLE_PROFILER
 			simpleGlyfProfiler.print(vFlags, "Parse_Simple_Glyf", "");
+#else
+			(void)vFlags;
+#endif
 		}
 	};
 

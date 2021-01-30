@@ -3,10 +3,18 @@
 
 #include "ttfrrw.h"
 
+#include <3rdparty/tracy/Tracy.hpp>
+
 int main(int, char**argv)
 {
+	(void)argv;
+
+	ZoneScoped;
+
 	TTFRRW::TTFRRW ttfrrw;
-	if (ttfrrw.OpenFontFile("testfont.ttf"))
+	static TTFRRW::ttfrrwProcessingFlags flags = TTFRRW::TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS;
+
+	if (ttfrrw.OpenFontFile("testfont2_colr.ttf", flags))
 	{
 		printf("TTFRRW succeed to open testfont.ttf\n");
 	}
