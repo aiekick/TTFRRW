@@ -447,12 +447,13 @@ namespace TTFRRW
 		std::string m_Name;
 		bool m_IsSimple = true; // simple or composite
 
-		// layer
-		fvec4 m_Color = 1.0f; // color if is a layer
-		PaletteIndex m_PaletteIndex = 0; // palette if is a layer
+		// layer // parentGlyphIndex
+		std::unordered_map<GlyphIndex, fvec4> m_Color; // color if is a layer
+		std::unordered_map<GlyphIndex, PaletteIndex> m_PaletteIndex; // palette if is a layer
 		bool m_IsLayer = false; // layer
 
 		std::vector<GlyphIndex> m_Layers; // color layers
+		std::set<GlyphIndex> m_Parents; // color layer parents
 		std::vector<ComposedGlyph> m_ComposedGlyph; // for composite
 
 	public:

@@ -1550,9 +1550,10 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 							auto color = m_Palettes[0][paletteID];
 							if (glyphID < m_Glyphs.size())
 							{
-								m_Glyphs[glyphID].m_Color = color;
-								m_Glyphs[glyphID].m_PaletteIndex = paletteID;
+								m_Glyphs[glyphID].m_Color[baseGlyphID] = color;
+								m_Glyphs[glyphID].m_PaletteIndex[baseGlyphID] = paletteID;
 								m_Glyphs[glyphID].m_IsLayer = true;
+								m_Glyphs[glyphID].m_Parents.emplace(baseGlyphID);
 							}
 							else
 								LogError(vFlags, "ERR : COLR Layer.GlyphId >= than glyph count\n");
