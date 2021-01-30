@@ -15,6 +15,8 @@
 #include <thread>
 #include <atomic>
 
+#define USE_SIMPLE_PROFILER
+
 namespace TTFRRW
 {
 	typedef uint16_t CodePoint;
@@ -544,7 +546,8 @@ namespace TTFRRW
 			ttfrrwProcessingFlags vFlags = 0, 
 			const char* vDebugInfos = "", 
 			TTFRRW_ATOMIC_PARAMS_DEFAULT);
-		bool OpenFontStream(uint8_t* vStream, size_t vStreamSize, 
+		bool OpenFontStream(uint8_t* vStream, 
+			const size_t& vStreamSize,
 			ttfrrwProcessingFlags vFlags = 0, 
 			const char* vDebugInfos = "",
 			TTFRRW_ATOMIC_PARAMS_DEFAULT);
@@ -583,20 +586,20 @@ namespace TTFRRW
 
 		void Clear(TTFRRW_ATOMIC_PARAMS);
 		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vInMem, int* vError);
-		bool Parse_Font_File(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_Table_Header(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_CMAP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_HEAD_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_LOCA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_MAXP_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_GLYF_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, GlyphIndex vGlyphIndex, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_POST_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_CPAL_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_COLR_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_HHEA_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_HMTX_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
-		bool Parse_NAME_Table(MemoryStream* vInMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_Font_File(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_Table_Header(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_CMAP_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_HEAD_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_LOCA_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_MAXP_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_GLYF_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		Glyph Parse_Simple_Glyf(MemoryStream* vInMem, const GlyphIndex& vGlyphIndex, const int16_t& vCountContour, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_POST_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_CPAL_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_COLR_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_HHEA_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_HMTX_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
+		bool Parse_NAME_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
 
 	//////////////////////////////////////////////////////////////////////////////
 	//// WRITE TABLE /////////////////////////////////////////////////////////////

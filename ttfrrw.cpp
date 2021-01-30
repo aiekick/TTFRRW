@@ -12,13 +12,15 @@
 #include <3rdparty/tracy/Tracy.hpp>
 
 #define VERBOSE_MODE
-//#define USE_SIMPLE_PROFILER
+
+// will sur stl classe (std::vector) instead of simple c array
+//#define USE_STL_CLASSES
 
 ///////////////////////////////////////////////////////////////////////
 //// LOGGING //////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-inline static void LogInfos(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fmt, ...)
+inline static void LogInfos(const TTFRRW::ttfrrwProcessingFlags& vFlags, const char* fmt, ...)
 {
 	ZoneScoped;
 
@@ -33,7 +35,7 @@ inline static void LogInfos(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fm
 #endif
 }
 
-inline static void LogError(TTFRRW::ttfrrwProcessingFlags vFlags, const char* fmt, ...)
+inline static void LogError(const TTFRRW::ttfrrwProcessingFlags& vFlags, const char* fmt, ...)
 {
 	ZoneScoped;
 
@@ -486,7 +488,7 @@ bool TTFRRW::TTFRRW::OpenFontFile(
 }
 
 bool TTFRRW::TTFRRW::OpenFontStream(
-	uint8_t* vStream, size_t vStreamSize,
+	uint8_t* vStream, const size_t& vStreamSize,
 	ttfrrwProcessingFlags vFlags,
 	const char* vDebugInfos,
 	TTFRRW_ATOMIC_PARAMS)
@@ -630,8 +632,6 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 
 	if (vInMem)
 	{
-		std::vector<uint8_t> bytes;
-
 		FILE* intput_file = NULL;
 #if defined(MSVC)
 		errno_t returnValue = fopen_s(&intput_file, vFilePathName.c_str(), "rb");
@@ -652,6 +652,7 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 			if (fileSize)
 			{
 				// copy the file into the buffer and close
+				std::vector<uint8_t> bytes;
 				bytes.resize(fileSize);
 				fread(bytes.data(), 1, fileSize, intput_file);
 				vInMem->Set(bytes.data(), bytes.size());
@@ -704,7 +705,7 @@ bool TTFRRW::TTFRRW::WriteMemoryToFile(
 //// PRIVATE PARSER ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	ZoneScoped;
 
@@ -796,7 +797,7 @@ bool TTFRRW::TTFRRW::Parse_Font_File(MemoryStream* vMem, ttfrrwProcessingFlags v
 	return res;
 }
 
-bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -838,7 +839,7 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, ttfrrwProcessingFlag
 	return (!m_Tables.empty());
 }
 
-bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1057,7 +1058,7 @@ bool TTFRRW::TTFRRW::Parse_CMAP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1100,7 +1101,7 @@ bool TTFRRW::TTFRRW::Parse_HEAD_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1141,7 +1142,7 @@ bool TTFRRW::TTFRRW::Parse_MAXP_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1189,7 +1190,7 @@ bool TTFRRW::TTFRRW::Parse_LOCA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1273,7 +1274,7 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex vGlyphIndex, int16_t vCountContour, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, const GlyphIndex& vGlyphIndex, const int16_t& vCountContour, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 	(void)vObjectCount;
@@ -1287,119 +1288,139 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex v
 #ifdef USE_SIMPLE_PROFILER
 		m_TTFProfiler.simpleGlyfProfiler.start();
 #endif
-		std::vector<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
-		size_t instructionLength;
-		std::vector<uint8_t> instructions;
-		std::vector<uint8_t> flags;
-		std::vector<bool> onCurves;
-		std::vector<int16_t> xCoordinates;
-		std::vector<int16_t> yCoordinates;
-
 		if (vCountContour >= 0) // this is well simple glyph
 		{
-			size_t countContours = (size_t)vCountContour;
+			const size_t countContours = (size_t)vCountContour;
 
+#ifdef USE_STL_CLASSES
+			std::vector<uint16_t> endPtsOfContours; // todo: to use a std::deque say PVS => to check
 			endPtsOfContours.resize(countContours);
+#else
+			uint16_t* endPtsOfContours = new uint16_t[countContours];
+			memset(endPtsOfContours, 0, sizeof(uint16_t) * countContours);
+#endif
 			for (size_t contourID = 0; contourID < countContours; contourID++)
 			{
-				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
-
 				endPtsOfContours[contourID] = (uint16_t)vMem->ReadShort() + 1U;
 			}
 
-			instructionLength = (size_t)vMem->ReadUShort();
+			const size_t instructionLength = (size_t)vMem->ReadUShort();
 			if (instructionLength)
 			{
-				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
-
+#ifdef USE_STL_CLASSES
+				std::vector<uint8_t> instructions;
 				instructions.resize(instructionLength);
+#else
+				uint8_t* instructions = new uint8_t[instructionLength];
+				memset(instructions, 0, sizeof(uint8_t) * instructionLength);
+#endif
 				for (size_t instructionID = 0; instructionID < instructionLength; instructionID++)
+				{
 					instructions[instructionID] = (uint8_t)vMem->ReadByte();
+				}
 			}
 
-			const int32_t SimpleFlagOnCurve = 1;
-			const int32_t SimpleFlagOnXShort = 1 << 1;
-			const int32_t SimpleFlagOnYShort = 1 << 2;
-			const int32_t SimpleFlagOnRepeat = 1 << 3;
-			const int32_t SimpleFlagOnXRepeatSign = 1 << 4;
-			const int32_t SimpleFlagOnYRepeatSign = 1 << 5;
+			static const int32_t SimpleFlagOnCurve = 1 << 0;
+			static const int32_t SimpleFlagOnXShort = 1 << 1;
+			static const int32_t SimpleFlagOnYShort = 1 << 2;
+			static const int32_t SimpleFlagOnRepeat = 1 << 3;
+			static const int32_t SimpleFlagOnXRepeatSign = 1 << 4;
+			static const int32_t SimpleFlagOnYRepeatSign = 1 << 5;
 
-			if (!endPtsOfContours.empty())
+#ifdef USE_STL_CLASSES
+			std::vector<uint8_t> flags;
+			std::vector<bool> onCurves;
+			std::vector<int16_t> xCoordinates;
+			std::vector<int16_t> yCoordinates;
+#else
+			uint8_t* flags = nullptr;
+			bool* onCurves = nullptr;
+			int16_t* xCoordinates = nullptr;
+			int16_t* yCoordinates = nullptr;
+#endif
+			const size_t maxPoints = (size_t)endPtsOfContours[countContours - 1];
+			if (maxPoints)
 			{
-				const size_t maxPoints = (size_t)endPtsOfContours[countContours - 1];
-				if (maxPoints)
+#ifdef USE_STL_CLASSES
+				xCoordinates.resize(maxPoints);
+				yCoordinates.resize(maxPoints);
+				onCurves.resize(maxPoints);
+				flags.resize(maxPoints);
+#else
+				xCoordinates = new int16_t[maxPoints];
+				memset(xCoordinates, 0, sizeof(int16_t) * maxPoints);
+				yCoordinates = new int16_t[maxPoints];
+				memset(yCoordinates, 0, sizeof(int16_t) * maxPoints);
+				onCurves = new bool[maxPoints];
+				memset(onCurves, 0, sizeof(bool) * maxPoints);
+				flags = new uint8_t[maxPoints];
+				memset(flags, 0, sizeof(uint8_t) * maxPoints);
+#endif
+				uint32_t flag_repeat = 0;
+				int32_t flag = 0;
+				for (size_t pointID = 0; pointID < maxPoints; pointID++)
 				{
-					xCoordinates.resize(maxPoints);
-					yCoordinates.resize(maxPoints);
-					onCurves.resize(maxPoints);
-					flags.resize(maxPoints);
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
-					uint32_t flag_repeat = 0;
-					int32_t flag = 0;
-					for (size_t pointID = 0; pointID < maxPoints; pointID++)
+					if (flag_repeat == 0)
 					{
-						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
-
-						if (flag_repeat == 0)
+						flag = vMem->ReadByte();
+						if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
 						{
-							flag = vMem->ReadByte();
-							if ((flag & SimpleFlagOnRepeat) == SimpleFlagOnRepeat)
-							{
-								flag_repeat = vMem->ReadByte();
-							}
-						}
-						else
-						{
-							flag_repeat--;
-						}
-
-						const uint8_t u8Flag = (uint8_t)flag;
-						flags[pointID] = u8Flag;
-						onCurves[pointID] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
-					}
-
-					for (size_t pointID = 0; pointID < maxPoints; pointID++)
-					{
-						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
-
-						flag = flags[pointID];
-
-						if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
-						{
-							int16_t coord = (int16_t)vMem->ReadByte();
-							coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
-							xCoordinates[pointID] = coord;
-						}
-						else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
-						{
-							xCoordinates[pointID] = (int16_t)vMem->ReadShort();
-						}
-						if (pointID)
-						{
-							xCoordinates[pointID] += xCoordinates[pointID - 1U];
+							flag_repeat = vMem->ReadByte();
 						}
 					}
-
-					for (size_t pointID = 0; pointID < maxPoints; pointID++)
+					else
 					{
-						ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+						flag_repeat--;
+					}
 
-						flag = flags[pointID];
+					const uint8_t u8Flag = (uint8_t)flag;
+					flags[pointID] = u8Flag;
+					onCurves[pointID] = ((u8Flag & SimpleFlagOnCurve) == SimpleFlagOnCurve);
+				}
 
-						if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
-						{
-							int16_t coord = (int16_t)vMem->ReadByte();
-							coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
-							yCoordinates[pointID] = coord;
-						}
-						else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
-						{
-							yCoordinates[pointID] = (int16_t)vMem->ReadShort();
-						}
-						if (pointID)
-						{
-							yCoordinates[pointID] += yCoordinates[pointID - 1U];
-						}
+				for (size_t pointID = 0; pointID < maxPoints; pointID++)
+				{
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
+					flag = flags[pointID];
+
+					if ((flag & SimpleFlagOnXShort) == SimpleFlagOnXShort)
+					{
+						int16_t coord = (int16_t)vMem->ReadByte();
+						coord *= ((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign) ? 1 : -1;
+						xCoordinates[pointID] = coord;
+					}
+					else if (!((flag & SimpleFlagOnXRepeatSign) == SimpleFlagOnXRepeatSign))
+					{
+						xCoordinates[pointID] = (int16_t)vMem->ReadShort();
+					}
+					if (pointID)
+					{
+						xCoordinates[pointID] += xCoordinates[pointID - 1U];
+					}
+				}
+
+				for (size_t pointID = 0; pointID < maxPoints; pointID++)
+				{
+					ATOMIC_RETURN_IF_STOP_WORKING(glyph);
+
+					flag = flags[pointID];
+
+					if ((flag & SimpleFlagOnYShort) == SimpleFlagOnYShort)
+					{
+						int16_t coord = (int16_t)vMem->ReadByte();
+						coord *= ((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign) ? 1 : -1;
+						yCoordinates[pointID] = coord;
+					}
+					else if (!((flag & SimpleFlagOnYRepeatSign) == SimpleFlagOnYRepeatSign))
+					{
+						yCoordinates[pointID] = (int16_t)vMem->ReadShort();
+					}
+					if (pointID)
+					{
+						yCoordinates[pointID] += yCoordinates[pointID - 1U];
 					}
 				}
 			}
@@ -1412,7 +1433,6 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex v
 				ATOMIC_RETURN_IF_STOP_WORKING(glyph);
 
 				const auto contour = &glyph.m_Contours[contourID];
-
 				const size_t pmax = endPtsOfContours[contourID] - lastCount;
 				if (pmax)
 				{
@@ -1435,6 +1455,13 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, GlyphIndex v
 
 				lastCount = endPtsOfContours[contourID];
 			}
+#ifndef USE_STL_CLASSES
+			delete[] flags; flags = nullptr;
+			delete[] onCurves; onCurves = nullptr;
+			delete[] xCoordinates; xCoordinates = nullptr;
+			delete[] yCoordinates; yCoordinates = nullptr;
+			delete[] endPtsOfContours; endPtsOfContours = nullptr;
+#endif
 		}
 #ifdef USE_SIMPLE_PROFILER
 		m_TTFProfiler.simpleGlyfProfiler.end();
@@ -1471,7 +1498,7 @@ static const char* standardMacNames[STANDARD_MAC_NAMES_COUNT] =
 "onequarter", "threequarters", "franc", "Gbreve", "gbreve", "Idotaccent", "Scedilla", "scedilla", "Cacute", "cacute",
 "Ccaron", "ccaron", "dcroat" };
 
-bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1583,7 +1610,7 @@ bool TTFRRW::TTFRRW::Parse_POST_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1656,7 +1683,7 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1733,7 +1760,7 @@ bool TTFRRW::TTFRRW::Parse_COLR_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1778,7 +1805,7 @@ bool TTFRRW::TTFRRW::Parse_HHEA_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
@@ -1867,7 +1894,7 @@ bool TTFRRW::TTFRRW::Parse_HMTX_Table(MemoryStream* vMem, ttfrrwProcessingFlags 
 	return false;
 }
 
-bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, ttfrrwProcessingFlags vFlags, TTFRRW_ATOMIC_PARAMS)
+bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
 
