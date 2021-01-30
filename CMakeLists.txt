@@ -2,22 +2,25 @@ cmake_minimum_required(VERSION 3.8)
 
 project(TTFRRW_App)
 
-option(GENERATE_TEST_APP "Enable generation of test app" OFF)
+option(TTFRRW_GENERATE_TEST_APP "TTFRRW : Generate test app" OFF)
+option(TTFRRW_USE_PROFILER_TRACY "TTFRRW : Enable Tracy Profiler" OFF)
 
 #############################################################################
 ## TRACY
 #############################################################################
-option(USE_PROFILER_TRACY "Enable Tracy Profiler" OFF)
 #############################################################################
-file(GLOB TRACY_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/tracy/TracyClient.cpp)
-add_library(tracy STATIC ${TRACY_SOURCES})
-set_target_properties(tracy PROPERTIES LINKER_LANGUAGE CXX)
-set_target_properties(tracy PROPERTIES FOLDER 3rdparty)
-set(TRACY_LIBRARIES tracy)
-if(NOT WIN32)
-    set(TRACY_LIBRARIES ${TRACY_LIBRARIES} dl pthread)
-endif()
-if (USE_PROFILER_TRACY)
+if (TTFRRW_USE_PROFILER_TRACY)
+	if (NOT TRACY_LIBRARIES)
+		set(TRACY_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/tracy)
+		file(GLOB TRACY_SOURCES ${TRACY_INCLUDE_DIR}/TracyClient.cpp)
+		add_library(tracy STATIC ${TRACY_SOURCES})
+		set_target_properties(tracy PROPERTIES LINKER_LANGUAGE CXX)
+		set_target_properties(tracy PROPERTIES FOLDER 3rdparty)
+		set(TRACY_LIBRARIES tracy)
+		if(NOT WIN32)
+			set(TRACY_LIBRARIES ${TRACY_LIBRARIES} dl pthread)
+		endif()
+	endif()
 	add_definitions(-DTRACY_ENABLE)
 endif()
 #############################################################################
@@ -61,7 +64,9 @@ endif ()
 add_library(ttfrrw STATIC ${SRC})
 target_link_libraries(ttfrrw ${TRACY_LIBRARIES})
 
-include_directories(.)
+include_directories(
+	.
+	${TRACY_INCLUDE_DIR})
 
 set_target_properties(ttfrrw PROPERTIES LINKER_LANGUAGE CXX)
 
@@ -69,7 +74,7 @@ set(TTFRRW_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR} PARENT_SCOPE)
 set(TTFRRW_LIBRARIES ttfrrw PARENT_SCOPE)
 set(TTFRRW_LIB_DIR ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
 
-if (GENERATE_TEST_APP)
+if (TTFRRW_GENERATE_TEST_APP)
 add_executable(TTFRRW_App main.cpp)
 target_link_libraries(TTFRRW_App ttfrrw ${TRACY_LIBRARIES})
 set_property(TARGET TTFRRW_App PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")

@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <cerrno>
 
-#include <3rdparty/tracy/Tracy.hpp>
+#include <Tracy.hpp>
 
 #define VERBOSE_MODE
 
