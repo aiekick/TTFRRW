@@ -5,6 +5,7 @@
 
 #include <Tracy.hpp>
 
+#ifdef TRACY_ENABLE
 void* operator new(std::size_t count)
 {
 	auto ptr = malloc(count);
@@ -27,6 +28,7 @@ void operator delete[](void* ptr) noexcept
 	TracyFree(ptr);
 	free(ptr);
 }
+#endif
 
 static TTFRRW::ttfrrwProcessingFlags flags = 
 	TTFRRW::TTFRRW_PROCESSING_FLAG_VERBOSE_ONLY_ERRORS | 

@@ -607,14 +607,14 @@ namespace TTFRRW
 
 	private: // write table
 		bool WriteMemoryToFile(const std::string& vFilePathName, MemoryStream* vOutMem, int* vError);
-		bool Assemble_GLYF_Table();
-		bool Assemble_LOCA_Table();
-		bool Assemble_MAXP_Table();
-		bool Assemble_CMAP_Table();
-		bool Assemble_HMTX_Table();
-		bool Assemble_HHEA_Table();
-		bool Assemble_POST_Table();
-		bool Assemble_NAME_Table();
-		bool Assemble_HEAD_Table();
+		MemoryStream Assemble_GLYF_Table();
+		MemoryStream Assemble_LOCA_Table();
+		MemoryStream Assemble_MAXP_Table();
+		MemoryStream Assemble_CMAP_Table();
+		MemoryStream Assemble_HMTX_Table();
+		MemoryStream Assemble_HHEA_Table();
+		MemoryStream Assemble_POST_Table();
+		MemoryStream Assemble_NAME_Table();
+		MemoryStream Assemble_HEAD_Table();
 	};
 }

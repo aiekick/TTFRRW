@@ -1274,16 +1274,6 @@ bool TTFRRW::TTFRRW::Parse_GLYF_Table(MemoryStream* vMem, const ttfrrwProcessing
 	return false;
 }
 
-enum SimpleFlags
-{
-	SimpleFlagOnCurve = 1 << 0,
-	SimpleFlagOnXShort = 1 << 1,
-	SimpleFlagOnYShort = 1 << 2,
-	SimpleFlagOnRepeat = 1 << 3,
-	SimpleFlagOnXRepeatSign = 1 << 4,
-	SimpleFlagOnYRepeatSign = 1 << 5,
-};
-
 TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, const GlyphIndex& vGlyphIndex, const int16_t& vCountContour, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS)
 {
 	(void)vProgress;
@@ -1361,6 +1351,16 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, const GlyphI
 				flags = new uint8_t[maxPoints];
 				memset(flags, 0, sizeof(uint8_t) * maxPoints);
 #endif
+				enum SimpleFlags
+				{
+					SimpleFlagOnCurve = 1 << 0,
+					SimpleFlagOnXShort = 1 << 1,
+					SimpleFlagOnYShort = 1 << 2,
+					SimpleFlagOnRepeat = 1 << 3,
+					SimpleFlagOnXRepeatSign = 1 << 4,
+					SimpleFlagOnYRepeatSign = 1 << 5,
+				};
+
 				uint32_t flag_repeat = 0;
 				int32_t flag = 0;
 				for (size_t pointID = 0; pointID < maxPoints; pointID++)
@@ -1924,12 +1924,12 @@ bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, const ttfrrwProcessing
 			{
 				vMem->SetPos(tbl.offset + 6U + 12U * i);
 
-				// 12 bytes :
-				//const uint16_t platformID = (uint16_t)vMem->ReadUShort();	// 2 bytes
-				//const uint16_t encodingID = (uint16_t)vMem->ReadUShort();	// 2 bytes
-				//const uint16_t languageID = (uint16_t)vMem->ReadUShort();	// 2 bytes
-				const uint16_t nameID = (uint16_t)vMem->ReadUShort(6);		// 2 bytes
-				const uint16_t length = (uint16_t)vMem->ReadUShort(6);		// 2 bytes
+				//12 bytes :
+				//const uint16_t platformID = (uint16_t)vMem->ReadUShort();		// 2 bytes
+				//const uint16_t encodingID = (uint16_t)vMem->ReadUShort();		// 2 bytes
+				//const uint16_t languageID = (uint16_t)vMem->ReadUShort();		// 2 bytes
+				const uint16_t nameID = (uint16_t)vMem->ReadUShort(6);			// 2 bytes
+				const uint16_t length = (uint16_t)vMem->ReadUShort(6);			// 2 bytes
 				const uint16_t stringOffset = (uint16_t)vMem->ReadUShort(6);	// 2 bytes
 
 				vMem->SetPos(tbl.offset + storageOffset + stringOffset);
@@ -1955,65 +1955,83 @@ bool TTFRRW::TTFRRW::Parse_NAME_Table(MemoryStream* vMem, const ttfrrwProcessing
 //// PRIVATE TABLES ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 
-bool TTFRRW::TTFRRW::Assemble_GLYF_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_GLYF_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_LOCA_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_LOCA_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_MAXP_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_MAXP_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_CMAP_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_CMAP_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_HMTX_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HMTX_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_HHEA_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HHEA_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_POST_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_POST_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_NAME_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_NAME_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
 
-bool TTFRRW::TTFRRW::Assemble_HEAD_Table()
+TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HEAD_Table()
 {
 	ZoneScoped;
 
-	return false;
+	MemoryStream mem;
+
+	return mem;
 }
