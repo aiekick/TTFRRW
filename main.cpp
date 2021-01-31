@@ -3,7 +3,7 @@
 
 #include "ttfrrw.h"
 
-#include <3rdparty/tracy/Tracy.hpp>
+#include <Tracy.hpp>
 
 void* operator new(std::size_t count)
 {
@@ -40,13 +40,22 @@ int main(int, char**argv)
 
 	TTFRRW::TTFRRW ttfrrw;
 	
-	if (ttfrrw.OpenFontFile("testfont2_colr.ttf", flags))
+	if (ttfrrw.OpenFontFile("testfont.ttf", flags))
 	{
-		printf("TTFRRW succeed to open testfont2_colr.ttf\n");
+		printf("TTFRRW succeed to open testfont.ttf\n");
+
+		if (ttfrrw.WriteFontFile("testfont_rewrite.ttf"))
+		{
+			printf("TTFRRW succeed to write testfont_rewrite.ttf\n");
+		}
+		else
+		{
+			printf("TTFRRW failed to write testfont_rewrite.ttf\n");
+		}
 	}
 	else
 	{
-		printf("TTFRRW failed to open testfont2_colr.ttf\n");
+		printf("TTFRRW failed to open testfont.ttf\n");
 	}
 
     return 0;
