@@ -13,7 +13,7 @@
 
 #define VERBOSE_MODE
 
-// will sur stl classe (std::vector) instead of simple c array
+// will use stl classe (std::vector) instead of simple c array
 //#define USE_STL_CLASSES
 
 ///////////////////////////////////////////////////////////////////////
@@ -1306,7 +1306,7 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, const GlyphI
 
 			const size_t instructionLength = (size_t)vMem->ReadUShort();
 			if (instructionLength)
-			{
+			{	
 #ifdef USE_STL_CLASSES
 				std::vector<uint8_t> instructions;
 				instructions.resize(instructionLength);
@@ -1318,9 +1318,8 @@ TTFRRW::Glyph TTFRRW::TTFRRW::Parse_Simple_Glyf(MemoryStream* vMem, const GlyphI
 				{
 					instructions[instructionID] = (uint8_t)vMem->ReadByte();
 				}
+				delete[] instructions;
 			}
-
-
 
 #ifdef USE_STL_CLASSES
 			std::vector<uint8_t> flags;
@@ -1630,7 +1629,6 @@ bool TTFRRW::TTFRRW::Parse_CPAL_Table(MemoryStream* vMem, const ttfrrwProcessing
 		//uint32_t len = tbl.length;
 
 		const uint16_t version = (uint16_t)vMem->ReadUShort();
-
 		if (version == 0)
 		{
 			const uint16_t numPaletteEntries = (uint16_t)vMem->ReadUShort();
@@ -2032,6 +2030,24 @@ TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HEAD_Table()
 	ZoneScoped;
 
 	MemoryStream mem;
+
+	MemoryStream::Fixed version = mem.WriteFixed();				//4
+	MemoryStream::Fixed fontRevision = vMem->ReadFixed();			//4
+	uint32_t checkSumAdjustment = (uint32_t)vMem->ReadULong();	//4
+	uint32_t magicNumber = (uint32_t)vMem->ReadULong();			//4
+	uint16_t flags = (uint16_t)vMem->ReadUShort(); // bitset		//2
+	uint16_t unitsPerEm = (uint16_t)vMem->ReadUShort();			//2
+	MemoryStream::longDateTime created = vMem->ReadDateTime();	//8
+	MemoryStream::longDateTime modified = vMem->ReadDateTime();	//8 => offset 36
+	m_TTFInfos.m_GlobalBBox.lowerBound.x = vMem->ReadFWord(36);			//2
+	m_TTFInfos.m_GlobalBBox.lowerBound.y = vMem->ReadFWord(36);			//2
+	m_TTFInfos.m_GlobalBBox.upperBound.x = vMem->ReadFWord(36);			//2
+	m_TTFInfos.m_GlobalBBox.upperBound.y = vMem->ReadFWord(36);			//2
+	uint16_t macStyle = (uint16_t)vMem->ReadUShort(); // bitset	//2
+	uint16_t lowestRecPPEM = (uint16_t)vMem->ReadUShort();		//2
+	uint16_t fontDirectionHint = (int16_t)vMem->ReadShort();		//2 => offset 36 + 6
+	m_IndexToLocFormat = (int16_t)vMem->ReadShort(42);					//2
+	uint16_t glyphDataFormat = (int16_t)vMem->ReadShort();
 
 	return mem;
 }

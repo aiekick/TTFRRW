@@ -34,7 +34,8 @@ add_definitions(-DPROJECT_PATH="${CMAKE_SOURCE_DIR}")
 file(GLOB SRC 
 	${CMAKE_CURRENT_SOURCE_DIR}/ttfrrw.cpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/ttfrrw.h)
-	
+source_group(src FILES ${SRC})
+
 if(UNIX)
 	if(APPLE)
 		add_definitions(-DAPPLE)
@@ -76,6 +77,9 @@ set(TTFRRW_LIBRARIES ttfrrw PARENT_SCOPE)
 set(TTFRRW_LIB_DIR ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
 
 if (TTFRRW_GENERATE_TEST_APP)
+file(GLOB SRC 
+	${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
+source_group(src FILES ${SRC})
 add_executable(TTFRRW_App main.cpp)
 target_link_libraries(TTFRRW_App ttfrrw ${TRACY_LIBRARIES})
 set_property(TARGET TTFRRW_App PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
