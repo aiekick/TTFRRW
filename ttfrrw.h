@@ -333,9 +333,9 @@ namespace TTFRRW
 		{
 			int16_t value = 0;
 			F2DOT14() { value = 0; }
-			F2DOT14(int16_t v) { value = v; }
-			void operator = (int16_t v) { value = v; }
-			void SetFloat(float vValue) { value = (int16_t)roundf(vValue * 16384.f); }
+			F2DOT14(const int16_t& v) { value = v; }
+			void operator = (const int16_t& v) { value = v; }
+			void SetFloat(const float& vValue) { value = (int16_t)roundf(vValue * 16384.f); }
 			float GetFloat() { return (float)(value >> 14) + (float)(value & 0x3FFF) / 16384.0f; }
 		};
 		struct bitfield24 
@@ -345,7 +345,7 @@ namespace TTFRRW
 			{
 				value = 0;
 			}
-			bitfield24(uint32_t vValue)
+			bitfield24(const uint32_t& vValue)
 			{
 				value = vValue;
 			}
@@ -357,43 +357,47 @@ namespace TTFRRW
 
 	public:
 		MemoryStream();
-		MemoryStream(uint8_t* vDatas, size_t vSize);
+		MemoryStream(uint8_t* vDatas, const size_t& vSize);
 		~MemoryStream();
 
-		void WriteByte(uint8_t b);
+		void WriteByte(const uint8_t& b);
 		void WriteBytes(std::vector<uint8_t>* buffer);
-		void WriteShort(int32_t i);
-		void WriteUShort(int32_t us);
-		void WriteFWord(int32_t us);
-		void WriteInt(int32_t i);
-		void WriteUInt24(int32_t ui);
-		void WriteULong(int64_t ul);
-		void WriteLong(int64_t l);
-		void WriteFixed(Fixed f);
-		void WriteF2DOT14(F2DOT14 f);
-		void WriteDateTime(longDateTime date);
+		void WriteShort(const int32_t& i);
+		void WriteUShort(const int32_t& us);
+		void WriteFWord(const int32_t& us);
+		void WriteInt(const int32_t& i);
+		void WriteUInt24(const int32_t& ui);
+		void WriteULong(const int64_t& ul);
+		void WriteLong(const int64_t& l);
+		void WriteFixed(const Fixed& f);
+		void WriteF2DOT14(const F2DOT14& f);
+		void WriteDateTime(const longDateTime& date);
+		void WriteTag(const std::string& vTag);
+
+		uint32_t GetTag(const uint8_t& a, const uint8_t& b, const uint8_t& c, const uint8_t& d);
 
 		uint8_t* Get();
-		void Set(uint8_t* vDatas, size_t vSize);
+		void Set(uint8_t* vDatas, const size_t& vSize);
 
 		size_t Size();
 
 		size_t GetPos();
-		void SetPos(size_t vPos);
+		void SetPos(const size_t& vPos);
 
-		uint8_t ReadByte(size_t vOffset = 0);
-		int32_t ReadUShort(size_t vOffset = 0);
-		int32_t ReadShort(size_t vOffset = 0);
-		FWord ReadFWord(size_t vOffset = 0);
-		UFWord ReadUFWord(size_t vOffset = 0);
-		uint32_t ReadUInt24(size_t vOffset = 0);
-		uint64_t ReadULong(size_t vOffset = 0);
-		uint32_t ReadULongAsInt(size_t vOffset = 0);
-		int32_t ReadLong(size_t vOffset = 0);
-		Fixed ReadFixed(size_t vOffset = 0);
-		F2DOT14 ReadF2DOT14(size_t vOffset = 0);
-		longDateTime ReadDateTime(size_t vOffset = 0);
-		std::string ReadString(size_t vLen, size_t vOffset = 0);
+		uint8_t ReadByte(const size_t& vOffset = 0);
+		int32_t ReadUShort(const size_t& vOffset = 0);
+		int32_t ReadShort(const size_t& vOffset = 0);
+		FWord ReadFWord(const size_t& vOffset = 0);
+		UFWord ReadUFWord(const size_t& vOffset = 0);
+		uint32_t ReadUInt24(const size_t& vOffset = 0);
+		uint64_t ReadULong(const size_t& vOffset = 0);
+		uint32_t ReadULongAsInt(const size_t& vOffset = 0);
+		int32_t ReadLong(const size_t& vOffset = 0);
+		Fixed ReadFixed(const size_t& vOffset = 0);
+		F2DOT14 ReadF2DOT14(const size_t& vOffset = 0);
+		longDateTime ReadDateTime(const size_t& vOffset = 0);
+		std::string ReadString(const size_t& vLen, const size_t& vOffset = 0);
+		std::string ReadTag(const size_t& vOffset = 0);
 
 	private:
 		std::vector<uint8_t> m_Datas;
@@ -571,7 +575,7 @@ namespace TTFRRW
 	public: // read table
 		struct TableStruct
 		{
-			uint8_t tag[5] = {};
+			std::string tag;
 			uint32_t checkSum = 0;
 			size_t offset = 0;
 			size_t length = 0;

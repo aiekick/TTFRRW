@@ -139,7 +139,7 @@ TTFRRW::MemoryStream::MemoryStream()
 	ZoneScoped;
 }
 
-TTFRRW::MemoryStream::MemoryStream(uint8_t* vDatas, size_t vSize)
+TTFRRW::MemoryStream::MemoryStream(uint8_t* vDatas, const size_t& vSize)
 {
 	ZoneScoped;
 
@@ -155,7 +155,7 @@ TTFRRW::MemoryStream::~MemoryStream()
 //// WRITE /////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-void TTFRRW::MemoryStream::WriteByte(uint8_t b)
+void TTFRRW::MemoryStream::WriteByte(const uint8_t& b)
 {
 	ZoneScoped;
 
@@ -172,7 +172,7 @@ void TTFRRW::MemoryStream::WriteBytes(std::vector<uint8_t>* buffer)
 	}
 }
 
-void TTFRRW::MemoryStream::WriteInt(int32_t i)
+void TTFRRW::MemoryStream::WriteInt(const int32_t& i)
 {
 	ZoneScoped;
 
@@ -182,7 +182,7 @@ void TTFRRW::MemoryStream::WriteInt(int32_t i)
 	WriteByte((uint8_t)(i & 0xff));
 }
 
-void TTFRRW::MemoryStream::WriteUShort(int32_t us)
+void TTFRRW::MemoryStream::WriteUShort(const int32_t& us)
 {
 	ZoneScoped;
 
@@ -190,21 +190,21 @@ void TTFRRW::MemoryStream::WriteUShort(int32_t us)
 	WriteByte((uint8_t)(us & 0xff));
 }
 
-void TTFRRW::MemoryStream::WriteFWord(int32_t us)
+void TTFRRW::MemoryStream::WriteFWord(const int32_t& us)
 {
 	ZoneScoped;
 
 	WriteUShort(us);
 }
 
-void TTFRRW::MemoryStream::WriteShort(int32_t s)
+void TTFRRW::MemoryStream::WriteShort(const int32_t& s)
 {
 	ZoneScoped;
 
 	WriteUShort(s);
 }
 
-void TTFRRW::MemoryStream::WriteUInt24(int32_t ui)
+void TTFRRW::MemoryStream::WriteUInt24(const int32_t& ui)
 {
 	ZoneScoped;
 
@@ -213,7 +213,7 @@ void TTFRRW::MemoryStream::WriteUInt24(int32_t ui)
 	WriteByte((uint8_t)ui & 0xff);
 }
 
-void TTFRRW::MemoryStream::WriteULong(int64_t ul)
+void TTFRRW::MemoryStream::WriteULong(const int64_t& ul)
 {
 	ZoneScoped;
 
@@ -223,14 +223,14 @@ void TTFRRW::MemoryStream::WriteULong(int64_t ul)
 	WriteByte((uint8_t)(ul & 0xff));
 }
 
-void TTFRRW::MemoryStream::WriteLong(int64_t l)
+void TTFRRW::MemoryStream::WriteLong(const int64_t& l)
 {
 	ZoneScoped;
 
 	WriteULong(l);
 }
 
-void TTFRRW::MemoryStream::WriteFixed(MemoryStream::Fixed f)
+void TTFRRW::MemoryStream::WriteFixed(const MemoryStream::Fixed& f)
 {
 	ZoneScoped;
 
@@ -240,19 +240,32 @@ void TTFRRW::MemoryStream::WriteFixed(MemoryStream::Fixed f)
 	WriteByte((uint8_t)(f.low & 0xff));
 }
 
-void TTFRRW::MemoryStream::WriteF2DOT14(MemoryStream::F2DOT14 f)
+void TTFRRW::MemoryStream::WriteF2DOT14(const MemoryStream::F2DOT14& f)
 {
 	ZoneScoped;
 
 	WriteShort(f.value);
 }
 
-void TTFRRW::MemoryStream::WriteDateTime(longDateTime date)
+void TTFRRW::MemoryStream::WriteDateTime(const longDateTime& date)
 {
 	ZoneScoped;
 
 	WriteULong((date >> 32) & 0xffffffff); //-V112
 	WriteULong(date & 0xffffffff); //-V112
+}
+
+uint32_t TTFRRW::MemoryStream::GetTag(const uint8_t& a, const uint8_t& b, const uint8_t& c, const uint8_t& d)
+{
+	return (d) | (c << 8) | (b << 16) | (a << 24);
+}
+
+void TTFRRW::MemoryStream::WriteTag(const std::string& vTag)
+{
+	if (vTag.size() >= 4) // only the 4 frist char will be used btw
+	{
+		WriteULong(GetTag(vTag[3], vTag[2], vTag[1], vTag[0]));
+	}
 }
 
 uint8_t* TTFRRW::MemoryStream::Get()
@@ -276,14 +289,14 @@ size_t TTFRRW::MemoryStream::GetPos()
 	return m_ReadPos;
 }
 
-void TTFRRW::MemoryStream::SetPos(size_t vPos)
+void TTFRRW::MemoryStream::SetPos(const size_t& vPos)
 {
 	ZoneScoped;
 
 	m_ReadPos = vPos;
 }
 
-void TTFRRW::MemoryStream::Set(uint8_t* vDatas, size_t vSize)
+void TTFRRW::MemoryStream::Set(uint8_t* vDatas, const size_t& vSize)
 {
 	ZoneScoped;
 
@@ -300,7 +313,7 @@ void TTFRRW::MemoryStream::Set(uint8_t* vDatas, size_t vSize)
 //// READ //////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-uint8_t TTFRRW::MemoryStream::ReadByte(size_t vOffset)
+uint8_t TTFRRW::MemoryStream::ReadByte(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -309,49 +322,49 @@ uint8_t TTFRRW::MemoryStream::ReadByte(size_t vOffset)
 	return 0;
 }
 
-int32_t TTFRRW::MemoryStream::ReadUShort(size_t vOffset)
+int32_t TTFRRW::MemoryStream::ReadUShort(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return 0xffff & (ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
-int32_t TTFRRW::MemoryStream::ReadShort(size_t vOffset)
+int32_t TTFRRW::MemoryStream::ReadShort(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return ((ReadByte(vOffset) << 8 | ReadByte(vOffset)) << 16) >> 16;
 }
 
-TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord(size_t vOffset)
+TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return (int16_t)ReadShort(vOffset);
 }
 
-TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord(size_t vOffset)
+TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return (uint16_t)ReadUShort(vOffset);
 }
 
-uint32_t TTFRRW::MemoryStream::ReadUInt24(size_t vOffset)
+uint32_t TTFRRW::MemoryStream::ReadUInt24(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return 0xffffff & (ReadByte(vOffset) << 16 | ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
-uint64_t TTFRRW::MemoryStream::ReadULong(size_t vOffset)
+uint64_t TTFRRW::MemoryStream::ReadULong(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return 0xffffffffL & ReadLong(vOffset); //-V112
 }
 
-uint32_t TTFRRW::MemoryStream::ReadULongAsInt(size_t vOffset)
+uint32_t TTFRRW::MemoryStream::ReadULongAsInt(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -359,7 +372,7 @@ uint32_t TTFRRW::MemoryStream::ReadULongAsInt(size_t vOffset)
 	return ((int32_t)ulong) & ~0x80000000; //-V112
 }
 
-int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
+int32_t TTFRRW::MemoryStream::ReadLong(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -370,7 +383,7 @@ int32_t TTFRRW::MemoryStream::ReadLong(size_t vOffset)
 		ReadByte(vOffset);
 }
 
-TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(size_t vOffset)
+TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -381,7 +394,7 @@ TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(size_t vOffset)
 	return res;
 }
 
-TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(size_t vOffset)
+TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -390,14 +403,14 @@ TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(size_t vOffset)
 	return res;
 }
 
-TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(size_t vOffset)
+TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return (int64_t)ReadULong(vOffset) << 32 | ReadULong(vOffset); //-V112
 }
 
-std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
+std::string TTFRRW::MemoryStream::ReadString(const size_t& vLen, const size_t& vOffset)
 {
 	if (vOffset + m_ReadPos + vLen < m_Datas.size())
 	{
@@ -408,6 +421,19 @@ std::string TTFRRW::MemoryStream::ReadString(size_t vLen, size_t vOffset)
 		return res;
 	}
 	return "";
+}
+
+std::string TTFRRW::MemoryStream::ReadTag(const size_t& vOffset)
+{
+	ZoneScoped;
+
+	std::string res = "OOOO"; // 4
+	uint32_t _tag = (uint32_t)ReadULong(vOffset);
+	res[0] = (uint8_t)((_tag >> 24) & 0xff);
+	res[1] = (uint8_t)((_tag >> 16) & 0xff);
+	res[2] = (uint8_t)((_tag >> 8) & 0xff);
+	res[3] = (uint8_t)(_tag & 0xff);
+	return res;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -817,20 +843,13 @@ bool TTFRRW::TTFRRW::Parse_Table_Header(MemoryStream* vMem, const ttfrrwProcessi
 	{
 		TableStruct tbl;
 
-		const uint32_t _tag = (uint32_t)vMem->ReadULong(6);
-		tbl.tag[0] = (uint8_t)((_tag >> 24) & 0xff);
-		tbl.tag[1] = (uint8_t)((_tag >> 16) & 0xff);
-		tbl.tag[2] = (uint8_t)((_tag >> 8) & 0xff);
-		tbl.tag[3] = (uint8_t)(_tag & 0xff);
-		tbl.tag[4] = '\0';
-
+		tbl.tag = vMem->ReadTag(6);
 		tbl.checkSum = (uint32_t)vMem->ReadULong(6);
 		tbl.offset = (size_t)vMem->ReadULong(6);
 		tbl.length = (size_t)vMem->ReadULong(6);
 
-		const std::string tagString = std::string((char*)tbl.tag); //-V112
-		m_Tables[tagString] = tbl;
-		LogInfos(vFlags, "Table %s found\n", tagString.c_str()); //-V111
+		m_Tables[tbl.tag] = tbl;
+		LogInfos(vFlags, "Table %s found\n", tbl.tag.c_str()); //-V111
 
 		ATOMIC_OBJECTS_COUNT_INC;
 		ATOMIC_RETURN_IF_STOP_WORKING(false);
@@ -2031,23 +2050,85 @@ TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HEAD_Table()
 
 	MemoryStream mem;
 
-	MemoryStream::Fixed version = mem.WriteFixed();				//4
-	MemoryStream::Fixed fontRevision = vMem->ReadFixed();			//4
-	uint32_t checkSumAdjustment = (uint32_t)vMem->ReadULong();	//4
-	uint32_t magicNumber = (uint32_t)vMem->ReadULong();			//4
-	uint16_t flags = (uint16_t)vMem->ReadUShort(); // bitset		//2
-	uint16_t unitsPerEm = (uint16_t)vMem->ReadUShort();			//2
-	MemoryStream::longDateTime created = vMem->ReadDateTime();	//8
-	MemoryStream::longDateTime modified = vMem->ReadDateTime();	//8 => offset 36
-	m_TTFInfos.m_GlobalBBox.lowerBound.x = vMem->ReadFWord(36);			//2
-	m_TTFInfos.m_GlobalBBox.lowerBound.y = vMem->ReadFWord(36);			//2
-	m_TTFInfos.m_GlobalBBox.upperBound.x = vMem->ReadFWord(36);			//2
-	m_TTFInfos.m_GlobalBBox.upperBound.y = vMem->ReadFWord(36);			//2
-	uint16_t macStyle = (uint16_t)vMem->ReadUShort(); // bitset	//2
-	uint16_t lowestRecPPEM = (uint16_t)vMem->ReadUShort();		//2
-	uint16_t fontDirectionHint = (int16_t)vMem->ReadShort();		//2 => offset 36 + 6
-	m_IndexToLocFormat = (int16_t)vMem->ReadShort(42);					//2
-	uint16_t glyphDataFormat = (int16_t)vMem->ReadShort();
+	// 0x00010000 if (version 1.0)
+	MemoryStream::Fixed version; version.high = 1;
+	mem.WriteFixed(version);
+
+	// set by font manufacturer
+	MemoryStream::Fixed fontRevision; fontRevision.high = 0;
+	mem.WriteFixed(fontRevision);
+
+	// To compute: set it to 0, calculate the checksum for the 'head' table 
+	// and put it in the table directory, sum the entire font as a uint32_t, 
+	// then store 0xB1B0AFBA - sum. (The checksum for the 'head' table will 
+	// be wrong as a result. That is OK; do not reset it.)
+	uint32_t checkSumAdjustment = 0;
+	mem.WriteULong(checkSumAdjustment);
+
+	// set to 0x5F0F3CF5
+	mem.WriteULong(0x5F0F3CF5);
+
+	// bit 0 - y value of 0 specifies baseline
+	// bit 1 - x position of left most black bit is LSB
+	// bit 2 - scaled point size and actual point size will differ (i.e. 24 point glyph differs from 12 point glyph scaled by factor of 2)
+	// bit 3 - use integer scaling instead of fractional
+	// bit 4 - (used by the Microsoft implementation of the TrueType scaler)
+	// bit 5 - This bit should be set in fonts that are intended to e laid out vertically, and in which the glyphs have been drawn such that an x-coordinate of 0 corresponds to the desired vertical baseline.
+	// bit 6 - This bit must be set to zero.
+	// bit 7 - This bit should be set if the font requires layout for correct linguistic rendering (e.g. Arabic fonts).
+	// bit 8 - This bit should be set for an AAT font which has one or more metamorphosis effects designated as happening by default.
+	// bit 9 - This bit should be set if the font contains any strong right-to-left glyphs.
+	// bit 10 - This bit should be set if the font contains Indic-style rearrangement effects.
+	// bits 11-13 - Defined by Adobe.
+	// bit 14 - This bit should be set if the glyphs in the font are simply generic symbols for code point ranges, such as for a last resort font.
+	uint16_t flags = 0;
+	mem.WriteUShort(flags);
+
+	// range from 64 to 16384
+	uint16_t unitsPerEm = 0;
+	mem.WriteUShort(unitsPerEm);
+
+	// international dates
+	MemoryStream::longDateTime created = 0;
+	mem.WriteDateTime(created);
+	MemoryStream::longDateTime modified = 0;
+	mem.WriteDateTime(modified);
+
+	// for all glyph bounding boxes
+	mem.WriteFWord(m_TTFInfos.m_GlobalBBox.lowerBound.x);
+	mem.WriteFWord(m_TTFInfos.m_GlobalBBox.lowerBound.y);
+	mem.WriteFWord(m_TTFInfos.m_GlobalBBox.upperBound.x);
+	mem.WriteFWord(m_TTFInfos.m_GlobalBBox.upperBound.y);
+	
+	// bit 0 bold
+	// bit 1 italic
+	// bit 2 underline
+	// bit 3 outline
+	// bit 4 shadow
+	// bit 5 condensed(narrow)
+	// bit 6 extended
+	uint16_t macStyle = 0;
+	mem.WriteUShort(macStyle);
+
+	// smallest readable size in pixels
+	uint16_t lowestRecPPEM = 0;
+	mem.WriteUShort(lowestRecPPEM);
+
+	// 0 Mixed directional glyphs
+	// 1 Only strongly left to right glyphs
+	// 2 Like 1 but also contains neutrals
+	// - 1 Only strongly right to left glyphs
+	// - 2 Like - 1 but also contains neutrals
+	uint16_t fontDirectionHint = 0;
+	mem.WriteShort(fontDirectionHint);
+
+	// Loc table format : 0 for short offsets, 1 for long
+	m_IndexToLocFormat = 0;
+	mem.WriteShort(m_IndexToLocFormat);
+
+	// 0 for current format
+	uint16_t glyphDataFormat = 0;
+	mem.WriteShort(glyphDataFormat);
 
 	return mem;
 }
