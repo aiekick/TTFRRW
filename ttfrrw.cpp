@@ -139,11 +139,11 @@ TTFRRW::MemoryStream::MemoryStream()
 	ZoneScoped;
 }
 
-TTFRRW::MemoryStream::MemoryStream(uint8_t* vDatas, const size_t& vSize)
+TTFRRW::MemoryStream::MemoryStream(const uint8_t* vDatas, const size_t& vSize)
 {
 	ZoneScoped;
 
-	Set(vDatas, vSize);
+	SetDatas(vDatas, vSize);
 }
 
 TTFRRW::MemoryStream::~MemoryStream()
@@ -155,6 +155,14 @@ TTFRRW::MemoryStream::~MemoryStream()
 //// WRITE /////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
+void TTFRRW::MemoryStream::AppendMemoryStream(const MemoryStream& vMem)
+{
+	if (vMem.GetSize())
+	{
+		WriteBytes(&vMem.m_Datas);
+	}
+}
+
 void TTFRRW::MemoryStream::WriteByte(const uint8_t& b)
 {
 	ZoneScoped;
@@ -162,13 +170,26 @@ void TTFRRW::MemoryStream::WriteByte(const uint8_t& b)
 	m_Datas.push_back(b);
 }
 
-void TTFRRW::MemoryStream::WriteBytes(std::vector<uint8_t>* buffer)
+void TTFRRW::MemoryStream::WriteBytes(const std::vector<uint8_t>* vDatas)
 {
-	if (buffer)
+	if (vDatas)
 	{
 		ZoneScoped;
 
-		m_Datas.insert(m_Datas.end(), buffer->begin(), buffer->end());
+		m_Datas.insert(m_Datas.end(), vDatas->begin(), vDatas->end());
+	}
+}
+
+void TTFRRW::MemoryStream::WriteBytes(const uint8_t* vDatas, const size_t& vSize)
+{
+	if (vDatas && vSize)
+	{
+		ZoneScoped;
+
+		std::vector<uint8_t> arr; 
+		arr.resize(vSize);
+		memcpy(arr.data(), vDatas, vSize);
+		m_Datas.insert(m_Datas.end(), arr.begin(), arr.end());
 	}
 }
 
@@ -195,6 +216,13 @@ void TTFRRW::MemoryStream::WriteFWord(const int32_t& us)
 	ZoneScoped;
 
 	WriteUShort(us);
+}
+
+void TTFRRW::MemoryStream::WriteUFWord(const int32_t& us)
+{
+	ZoneScoped;
+
+	WriteFWord(us);
 }
 
 void TTFRRW::MemoryStream::WriteShort(const int32_t& s)
@@ -255,7 +283,7 @@ void TTFRRW::MemoryStream::WriteDateTime(const longDateTime& date)
 	WriteULong(date & 0xffffffff); //-V112
 }
 
-uint32_t TTFRRW::MemoryStream::GetTag(const uint8_t& a, const uint8_t& b, const uint8_t& c, const uint8_t& d)
+const uint32_t TTFRRW::MemoryStream::GetTag(const uint8_t& a, const uint8_t& b, const uint8_t& c, const uint8_t& d)
 {
 	return (d) | (c << 8) | (b << 16) | (a << 24);
 }
@@ -268,21 +296,29 @@ void TTFRRW::MemoryStream::WriteTag(const std::string& vTag)
 	}
 }
 
-uint8_t* TTFRRW::MemoryStream::Get()
+void TTFRRW::MemoryStream::WriteString(const std::string& vString)
+{
+	for (const auto& s : vString)
+	{
+		WriteByte(s);
+	}
+}
+
+const uint8_t* TTFRRW::MemoryStream::GetDatas() const
 {
 	ZoneScoped;
 
 	return m_Datas.data();
 }
 
-size_t TTFRRW::MemoryStream::Size()
+const size_t TTFRRW::MemoryStream::GetSize() const
 {
 	ZoneScoped;
 
 	return m_Datas.size();
 }
 
-size_t TTFRRW::MemoryStream::GetPos()
+const size_t TTFRRW::MemoryStream::GetPos() const
 {
 	ZoneScoped;
 
@@ -296,7 +332,7 @@ void TTFRRW::MemoryStream::SetPos(const size_t& vPos)
 	m_ReadPos = vPos;
 }
 
-void TTFRRW::MemoryStream::Set(uint8_t* vDatas, const size_t& vSize)
+void TTFRRW::MemoryStream::SetDatas(const uint8_t* vDatas, const size_t& vSize)
 {
 	ZoneScoped;
 
@@ -313,58 +349,77 @@ void TTFRRW::MemoryStream::Set(uint8_t* vDatas, const size_t& vSize)
 //// READ //////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-uint8_t TTFRRW::MemoryStream::ReadByte(const size_t& vOffset)
+const uint8_t TTFRRW::MemoryStream::ReadByte(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	if (vOffset + m_ReadPos < m_Datas.size())
 		return m_Datas[vOffset + m_ReadPos++];
+
 	return 0;
 }
 
-int32_t TTFRRW::MemoryStream::ReadUShort(const size_t& vOffset)
+const std::vector<uint8_t> TTFRRW::MemoryStream::ReadBytes(const size_t& vLen, const size_t& vOffset)
+{
+	ZoneScoped;
+
+	std::vector<uint8_t> res;
+
+	if (vOffset + m_ReadPos + vLen < m_Datas.size())
+	{
+		auto start = m_Datas.begin() + vOffset + m_ReadPos;
+		auto end = start + vLen;
+		res = std::vector<uint8_t>(start, end);
+		m_ReadPos += vLen;
+	}
+
+	return res;
+
+}
+
+const int32_t TTFRRW::MemoryStream::ReadUShort(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return 0xffff & (ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
-int32_t TTFRRW::MemoryStream::ReadShort(const size_t& vOffset)
+const int32_t TTFRRW::MemoryStream::ReadShort(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return ((ReadByte(vOffset) << 8 | ReadByte(vOffset)) << 16) >> 16;
 }
 
-TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord(const size_t& vOffset)
+const TTFRRW::MemoryStream::FWord TTFRRW::MemoryStream::ReadFWord(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return (int16_t)ReadShort(vOffset);
 }
 
-TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord(const size_t& vOffset)
+const TTFRRW::MemoryStream::UFWord TTFRRW::MemoryStream::ReadUFWord(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return (uint16_t)ReadUShort(vOffset);
 }
 
-uint32_t TTFRRW::MemoryStream::ReadUInt24(const size_t& vOffset)
+const uint32_t TTFRRW::MemoryStream::ReadUInt24(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return 0xffffff & (ReadByte(vOffset) << 16 | ReadByte(vOffset) << 8 | ReadByte(vOffset));
 }
 
-uint64_t TTFRRW::MemoryStream::ReadULong(const size_t& vOffset)
+const uint64_t TTFRRW::MemoryStream::ReadULong(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return 0xffffffffL & ReadLong(vOffset); //-V112
 }
 
-uint32_t TTFRRW::MemoryStream::ReadULongAsInt(const size_t& vOffset)
+const uint32_t TTFRRW::MemoryStream::ReadULongAsInt(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -372,7 +427,7 @@ uint32_t TTFRRW::MemoryStream::ReadULongAsInt(const size_t& vOffset)
 	return ((int32_t)ulong) & ~0x80000000; //-V112
 }
 
-int32_t TTFRRW::MemoryStream::ReadLong(const size_t& vOffset)
+const int32_t TTFRRW::MemoryStream::ReadLong(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -383,7 +438,7 @@ int32_t TTFRRW::MemoryStream::ReadLong(const size_t& vOffset)
 		ReadByte(vOffset);
 }
 
-TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(const size_t& vOffset)
+const TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -394,7 +449,7 @@ TTFRRW::MemoryStream::Fixed TTFRRW::MemoryStream::ReadFixed(const size_t& vOffse
 	return res;
 }
 
-TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(const size_t& vOffset)
+const TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -403,14 +458,14 @@ TTFRRW::MemoryStream::F2DOT14 TTFRRW::MemoryStream::ReadF2DOT14(const size_t& vO
 	return res;
 }
 
-TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(const size_t& vOffset)
+const TTFRRW::MemoryStream::longDateTime TTFRRW::MemoryStream::ReadDateTime(const size_t& vOffset)
 {
 	ZoneScoped;
 
 	return (int64_t)ReadULong(vOffset) << 32 | ReadULong(vOffset); //-V112
 }
 
-std::string TTFRRW::MemoryStream::ReadString(const size_t& vLen, const size_t& vOffset)
+const std::string TTFRRW::MemoryStream::ReadString(const size_t& vLen, const size_t& vOffset)
 {
 	if (vOffset + m_ReadPos + vLen < m_Datas.size())
 	{
@@ -423,7 +478,7 @@ std::string TTFRRW::MemoryStream::ReadString(const size_t& vLen, const size_t& v
 	return "";
 }
 
-std::string TTFRRW::MemoryStream::ReadTag(const size_t& vOffset)
+const std::string TTFRRW::MemoryStream::ReadTag(const size_t& vOffset)
 {
 	ZoneScoped;
 
@@ -529,7 +584,7 @@ bool TTFRRW::TTFRRW::OpenFontStream(
 	if (vStream && vStreamSize)
 	{
 		MemoryStream mem;
-		mem.Set(vStream, vStreamSize);
+		mem.SetDatas(vStream, vStreamSize);
 		res = Parse_Font_File(&mem, vFlags, TTFRRW_ATOMIC_PARAMS_BY_REF);
 	}
 #ifdef USE_SIMPLE_PROFILER
@@ -539,6 +594,24 @@ bool TTFRRW::TTFRRW::OpenFontStream(
 	(void)vDebugInfos;
 #endif
 	return res;
+}
+
+// finalize the job
+// put codepoint in each glyphs
+void TTFRRW::TTFRRW::ConsolidateGlyphs()
+{
+	for (size_t idx = 0; idx < m_Glyphs.size(); idx++)
+	{
+		GlyphIndex gi = (GlyphIndex)idx;
+		if (m_GlyphIndex_To_CodePoints.find(gi) != m_GlyphIndex_To_CodePoints.end())
+		{
+			auto cdps = m_GlyphIndex_To_CodePoints[gi];
+			if (!cdps.empty())
+			{
+				m_Glyphs[idx].m_CodePoint = *cdps.begin();
+			}
+		}
+	}
 }
 
 std::vector<TTFRRW::Glyph>* TTFRRW::TTFRRW::GetGlyphs()
@@ -649,14 +722,14 @@ bool TTFRRW::TTFRRW::IsValidFotGlyppTreatment()
 
 bool TTFRRW::TTFRRW::LoadFileToMemory(
 	const std::string& vFilePathName,
-	MemoryStream* vInMem,
+	MemoryStream* vOutMem,
 	int* vError)
 {
 	ZoneScoped;
 
 	bool res = false;
 
-	if (vInMem)
+	if (vOutMem)
 	{
 		FILE* intput_file = NULL;
 #if defined(MSVC)
@@ -681,7 +754,7 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 				std::vector<uint8_t> bytes;
 				bytes.resize(fileSize);
 				fread(bytes.data(), 1, fileSize, intput_file);
-				vInMem->Set(bytes.data(), bytes.size());
+				vOutMem->SetDatas(bytes.data(), bytes.size());
 			}
 
 			fclose(intput_file);
@@ -695,32 +768,29 @@ bool TTFRRW::TTFRRW::LoadFileToMemory(
 
 bool TTFRRW::TTFRRW::WriteMemoryToFile(
 	const std::string& vFilePathName,
-	MemoryStream* vOutMem,
+	const MemoryStream& vInMem,
 	int* vError)
 {
 	ZoneScoped;
 
 	bool res = false;
 
-	if (vOutMem)
+	if (vInMem.GetSize())
 	{
-		if (vOutMem->Size())
-		{
-			FILE* output_file = nullptr;
+		FILE* output_file = nullptr;
 #if defined(MSVC)
-			fopen_s(&output_file, vFilePathName.c_str(), "wb");
+		fopen_s(&output_file, vFilePathName.c_str(), "wb");
 #else
-			output_file = fopen(vFilePathName.c_str(), "wb");
+		output_file = fopen(vFilePathName.c_str(), "wb");
 #endif
-			if (vError)
-				*vError = errno;
-			if (output_file != reinterpret_cast<FILE*>(NULL))
-			{
-				fwrite(vOutMem->Get(), 1, vOutMem->Size(), output_file);
-				fflush(output_file);
-				fclose(output_file);
-				res = true;
-			}
+		if (vError)
+			*vError = errno;
+		if (output_file != reinterpret_cast<FILE*>(NULL))
+		{
+			fwrite(vInMem.GetDatas(), 1, vInMem.GetSize(), output_file);
+			fflush(output_file);
+			fclose(output_file);
+			res = true;
 		}
 	}
 
@@ -2005,6 +2075,45 @@ TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_CMAP_Table()
 
 	MemoryStream mem;
 
+	uint16_t version = 0; // Version number(Set to zero)
+	mem.WriteUShort(version);
+	uint16_t numberSubtables = 1; // Number of encoding subtables
+	mem.WriteUShort(numberSubtables);
+
+	// 0 	Unicode 	Indicates Unicode version.
+	// 1 	Macintosh 	Script Manager code.
+	// 2 	(reserved; do not use)
+	// 3 	Microsoft 	Microsoft encoding.
+	uint16_t platformID = 0; // Platform identifier
+	mem.WriteUShort(platformID);
+
+	// 0 	Version 1.0 semantics
+	// 1 	Version 1.1 semantics
+	// 2 	ISO 10646 1993 semantics (deprecated)
+	// 3 	Unicode 2.0 or later semantics (BMP only)
+	// 4 	Unicode 2.0 or later semantics (non-BMP characters allowed)
+	// 5 	Unicode Variation Sequences
+	// 6 	Last Resort
+	uint16_t platformSpecificID = 0; // Platform - specific encoding identifier
+	mem.WriteUShort(platformSpecificID);
+	uint32_t offset = 0; // Offset of the mapping table from start of the cmap table
+	mem.WriteUShort(offset);
+
+	uint16_t format = 6; // Format number is set to 6
+	uint16_t length; // Length of subtable in bytes
+	uint16_t language; // Language code(see above)
+	uint16_t segCountX2; // 2 * segCount
+	uint16_t searchRange; // 2 * (2 * *FLOOR(log2(segCount)))
+	uint16_t entrySelector; // log2(searchRange / 2)
+	uint16_t rangeShift; // (2 * segCount) - searchRange
+	uint16_t endCode;// [segCount] ; // Ending character code for each segment, last = 0xFFFF.
+	uint16_t reservedPad; // This value should be zero
+	uint16_t startCode;// [segCount]; // Starting character code for each segment
+	uint16_t idDelta;// [segCount]; // Delta for all character codes in segment
+	uint16_t idRangeOffset;// [segCount]; // Offset in bytes to glyph indexArray, or 0
+	uint16_t glyphIndexArray;// [variable] ; // Glyph index array
+	
+
 	return mem;
 }
 
@@ -2023,6 +2132,30 @@ TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HHEA_Table()
 
 	MemoryStream mem;
 
+	const int16_t caretSlopeRise = 0; // used to calculate the slope of the caret(rise / run) set to 1 for vertical caret
+	const int16_t caretSlopeRun = 0; // 0 for vertical
+	const MemoryStream::FWord caretOffset = 0; // set value to 0 for non - slanted fonts
+	const int16_t metricDataFormat = 0; // 0 for current format
+
+	MemoryStream::Fixed version; version.high = 1;
+	mem.WriteFixed(version);
+	mem.WriteFWord(m_TTFInfos.m_Ascent);
+	mem.WriteFWord(m_TTFInfos.m_Descent);
+	mem.WriteFWord(m_TTFInfos.m_LineGap);
+	mem.WriteUFWord(m_TTFInfos.m_AdvanceWidthMax);
+	mem.WriteFWord(m_TTFInfos.m_MinLeftSideBearing);
+	mem.WriteFWord(m_TTFInfos.m_MinRightSideBearing);
+	mem.WriteFWord(m_TTFInfos.m_XMaxExtent);
+	mem.WriteShort(caretSlopeRise);
+	mem.WriteShort(caretSlopeRun);
+	mem.WriteFWord(caretOffset);
+	mem.WriteShort(0); // reserved
+	mem.WriteShort(0); // reserved
+	mem.WriteShort(0); // reserved
+	mem.WriteShort(0); // reserved
+	mem.WriteShort(metricDataFormat);
+	mem.WriteUShort(m_MumOfLongHorMetrics);
+
 	return mem;
 }
 
@@ -2032,6 +2165,48 @@ TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_POST_Table()
 
 	MemoryStream mem;
 
+	std::unordered_map<std::string, int32_t> invertedStandardNames;
+	for (int32_t i = 0; i < STANDARD_MAC_NAMES_COUNT; ++i)
+	{
+		invertedStandardNames[standardMacNames[i]] = i;
+	}
+
+	MemoryStream::Fixed table_Version; table_Version.high = 2;
+	mem.WriteFixed(table_Version); // version
+	MemoryStream::Fixed italicAngle; italicAngle.high = 0;
+	mem.WriteFixed(italicAngle); // italic
+	mem.WriteShort(0); // underlinePosition
+	mem.WriteShort(0); // underlineThickness
+	mem.WriteULong(0); // isFixedPitch
+	mem.WriteULong(0); // minMemType42
+	mem.WriteULong(0); // maxMemType42
+	mem.WriteULong(0); // minMemType1
+	mem.WriteULong(0); // maxMemType1
+	mem.WriteUShort((int32_t)m_Glyphs.size());
+
+	MemoryStream names;
+	int32_t tableIndex = STANDARD_MAC_NAMES_COUNT;
+	for (size_t idx = 0; idx < m_Glyphs.size(); idx++)
+	{
+		const auto& name = m_Glyphs[idx].m_Name;
+		if (!name.empty())
+		{
+			int32_t glyphNameIndex = 0;
+			if (invertedStandardNames.find(name) != invertedStandardNames.end())
+			{
+				glyphNameIndex = invertedStandardNames.at(name);
+			}
+			else
+			{
+				glyphNameIndex = tableIndex++;
+				names.WriteString(name);
+			}
+			mem.WriteUShort(glyphNameIndex);
+		}
+	}
+	
+	mem.AppendMemoryStream(names);
+	
 	return mem;
 }
 
@@ -2085,7 +2260,7 @@ TTFRRW::MemoryStream TTFRRW::TTFRRW::Assemble_HEAD_Table()
 	mem.WriteUShort(flags);
 
 	// range from 64 to 16384
-	uint16_t unitsPerEm = 0;
+	uint16_t unitsPerEm = m_TTFInfos.m_GlobalBBox.upperBound.x - m_TTFInfos.m_GlobalBBox.lowerBound.x;
 	mem.WriteUShort(unitsPerEm);
 
 	// international dates

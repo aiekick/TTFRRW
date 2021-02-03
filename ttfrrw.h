@@ -336,7 +336,7 @@ namespace TTFRRW
 			F2DOT14(const int16_t& v) { value = v; }
 			void operator = (const int16_t& v) { value = v; }
 			void SetFloat(const float& vValue) { value = (int16_t)roundf(vValue * 16384.f); }
-			float GetFloat() { return (float)(value >> 14) + (float)(value & 0x3FFF) / 16384.0f; }
+			const float GetFloat() const { return (float)(value >> 14) + (float)(value & 0x3FFF) / 16384.0f; }
 		};
 		struct bitfield24 
 		{
@@ -357,14 +357,18 @@ namespace TTFRRW
 
 	public:
 		MemoryStream();
-		MemoryStream(uint8_t* vDatas, const size_t& vSize);
+		MemoryStream(const uint8_t* vDatas, const size_t& vSize);
 		~MemoryStream();
 
+		void AppendMemoryStream(const MemoryStream& vMem);
+		
 		void WriteByte(const uint8_t& b);
-		void WriteBytes(std::vector<uint8_t>* buffer);
+		void WriteBytes(const std::vector<uint8_t>* vDatas);
+		void WriteBytes(const uint8_t* vDatas, const size_t& vSize);
 		void WriteShort(const int32_t& i);
 		void WriteUShort(const int32_t& us);
 		void WriteFWord(const int32_t& us);
+		void WriteUFWord(const int32_t& us);
 		void WriteInt(const int32_t& i);
 		void WriteUInt24(const int32_t& ui);
 		void WriteULong(const int64_t& ul);
@@ -373,31 +377,30 @@ namespace TTFRRW
 		void WriteF2DOT14(const F2DOT14& f);
 		void WriteDateTime(const longDateTime& date);
 		void WriteTag(const std::string& vTag);
+		void WriteString(const std::string& vString);
 
-		uint32_t GetTag(const uint8_t& a, const uint8_t& b, const uint8_t& c, const uint8_t& d);
-
-		uint8_t* Get();
-		void Set(uint8_t* vDatas, const size_t& vSize);
-
-		size_t Size();
-
-		size_t GetPos();
+		const uint32_t GetTag(const uint8_t& a, const uint8_t& b, const uint8_t& c, const uint8_t& d);
+		const uint8_t* GetDatas() const;
+		void SetDatas(const uint8_t* vDatas, const size_t& vSize);
+		const size_t GetSize() const;
+		const size_t GetPos() const;
 		void SetPos(const size_t& vPos);
-
-		uint8_t ReadByte(const size_t& vOffset = 0);
-		int32_t ReadUShort(const size_t& vOffset = 0);
-		int32_t ReadShort(const size_t& vOffset = 0);
-		FWord ReadFWord(const size_t& vOffset = 0);
-		UFWord ReadUFWord(const size_t& vOffset = 0);
-		uint32_t ReadUInt24(const size_t& vOffset = 0);
-		uint64_t ReadULong(const size_t& vOffset = 0);
-		uint32_t ReadULongAsInt(const size_t& vOffset = 0);
-		int32_t ReadLong(const size_t& vOffset = 0);
-		Fixed ReadFixed(const size_t& vOffset = 0);
-		F2DOT14 ReadF2DOT14(const size_t& vOffset = 0);
-		longDateTime ReadDateTime(const size_t& vOffset = 0);
-		std::string ReadString(const size_t& vLen, const size_t& vOffset = 0);
-		std::string ReadTag(const size_t& vOffset = 0);
+		
+		const uint8_t ReadByte(const size_t& vOffset = 0);
+		const std::vector<uint8_t> ReadBytes(const size_t& vLen, const size_t& vOffset = 0);
+		const int32_t ReadUShort(const size_t& vOffset = 0);
+		const int32_t ReadShort(const size_t& vOffset = 0);
+		const FWord ReadFWord(const size_t& vOffset = 0);
+		const UFWord ReadUFWord(const size_t& vOffset = 0);
+		const uint32_t ReadUInt24(const size_t& vOffset = 0);
+		const uint64_t ReadULong(const size_t& vOffset = 0);
+		const uint32_t ReadULongAsInt(const size_t& vOffset = 0);
+		const int32_t ReadLong(const size_t& vOffset = 0);
+		const Fixed ReadFixed(const size_t& vOffset = 0);
+		const F2DOT14 ReadF2DOT14(const size_t& vOffset = 0);
+		const longDateTime ReadDateTime(const size_t& vOffset = 0);
+		const std::string ReadString(const size_t& vLen, const size_t& vOffset = 0);
+		const std::string ReadTag(const size_t& vOffset = 0);
 
 	private:
 		std::vector<uint8_t> m_Datas;
@@ -454,6 +457,7 @@ namespace TTFRRW
 		int32_t m_RightSideBearing = 0;
 		std::string m_Name;
 		bool m_IsSimple = true; // simple or composite
+		CodePoint m_CodePoint = 0;
 
 		// layer // parentGlyphIndex
 		std::unordered_map<GlyphIndex, fvec4> m_Color; // color if is a layer
@@ -555,6 +559,8 @@ namespace TTFRRW
 			ttfrrwProcessingFlags vFlags = 0, 
 			const char* vDebugInfos = "",
 			TTFRRW_ATOMIC_PARAMS_DEFAULT);
+		void ConsolidateGlyphs(); // finalize the job
+
 		std::vector<Glyph>* GetGlyphs();
 		Glyph* GetGlyphWithGlyphIndex(const GlyphIndex& vGlyphIndex);
 		Glyph* GetGlyphWithCodePoint(const CodePoint& vCodePoint);
@@ -589,7 +595,7 @@ namespace TTFRRW
 		int16_t m_MumOfLongHorMetrics = 0; // fromm hhea for hmtx
 
 		void Clear(TTFRRW_ATOMIC_PARAMS);
-		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vInMem, int* vError);
+		bool LoadFileToMemory(const std::string& vFilePathName, MemoryStream* vOutMem, int* vError);
 		bool Parse_Font_File(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_Table_Header(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
 		bool Parse_CMAP_Table(MemoryStream* vInMem, const ttfrrwProcessingFlags& vFlags, TTFRRW_ATOMIC_PARAMS);
@@ -610,7 +616,8 @@ namespace TTFRRW
 	//////////////////////////////////////////////////////////////////////////////
 
 	private: // write table
-		bool WriteMemoryToFile(const std::string& vFilePathName, MemoryStream* vOutMem, int* vError);
+		bool WriteMemoryToFile(const std::string& vFilePathName, const MemoryStream& vIntMem, int* vError);
+		MemoryStream Assemble_Table_Header();
 		MemoryStream Assemble_GLYF_Table();
 		MemoryStream Assemble_LOCA_Table();
 		MemoryStream Assemble_MAXP_Table();
